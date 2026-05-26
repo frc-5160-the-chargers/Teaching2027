@@ -1,0 +1,31 @@
+stateDiagram-v2
+    direction LR
+
+    home --> coralPickup : when coralPickupButton
+    coralPickup --> home : when homeButton
+    home --> l1Score : when l1ScoreButtonAndHasCoral
+    home --> l2Score : when l2ScoreButtonAndHasCoral
+    home --> l3Score : when l3ScoreButtonAndHasCoral
+    home --> l4Score : when l4ScoreButtonAndHasCoral
+    l1Score --> spitScoreCoral : when scoreButton
+    l2Score --> spitScoreCoral : when scoreButton
+    l3Score --> spitScoreCoral : when scoreButton
+    l4Score --> spitScoreCoral : when scoreButton
+    spitScoreCoral --> home : when homeButton
+    l2LowerScore --> home : when homeButton
+    l3LowerScore --> home : when homeButton
+    l4LowerScore --> home : when homeButton
+    home --> algaeHome : when algaeFloorPickupButton
+    home --> l2AlgaePickup : when l2ScoreButton
+    home --> l3AlgaePickup : when l3ScoreButton
+    algaeFloorPickup --> algaeHome : when homeButtonAndHasAlgae
+    l2AlgaePickup --> algaeHome : when homeButtonAndHasAlgae
+    l3AlgaePickup --> algaeHome : when homeButtonAndHasAlgae
+    algaeHome --> netScorePosition : when l4ScoreButtonAndHasAlgae
+    algaeHome --> processorScorePosition : when l1ScoreButtonAndHasAlgae
+    netScorePosition --> algaeHome : when homeButtonAndHasAlgae
+    netScorePosition --> processorScorePosition : when l1ScoreButtonAndHasAlgae
+    netScorePosition --> home : when homeButtonAndHasNoAlgae
+    processorScorePosition --> algaeHome : when homeButtonAndHasAlgae
+    processorScorePosition --> netScorePosition : when l4ScoreButtonAndHasAlgae
+    processorScorePosition --> home : when homeButtonAndHasNoAlgae

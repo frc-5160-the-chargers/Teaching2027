@@ -1,0 +1,36 @@
+import org.gradle.internal.os.OperatingSystem
+
+pluginManagement {
+    repositories {
+        String wpilibYear = '2027_alpha5'
+        File wpilibHome
+        if (OperatingSystem.current().isWindows()) {
+            String publicFolder = System.getenv('PUBLIC')
+            if (publicFolder == null) {
+                publicFolder = "C:\\Users\\Public"
+            }
+            def homeRoot = new File(publicFolder, "wpilib")
+            wpilibHome = new File(homeRoot, wpilibYear)
+        } else {
+            def userFolder = System.getProperty("user.home")
+            def homeRoot = new File(userFolder, "wpilib")
+            wpilibHome = new File(homeRoot, wpilibYear)
+        }
+        def wpilibHomeMaven = new File(wpilibHome, 'maven')
+        maven {
+            name = 'wpilibHome'
+            url = wpilibHomeMaven
+        }
+        mavenLocal()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'org.jetbrains.kotlin.jvm' version '2.3.21'
+    }
+}
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+Properties props = System.getProperties();
+props.setProperty("org.gradle.internal.native.headers.unresolved.dependencies.ignore", "true");

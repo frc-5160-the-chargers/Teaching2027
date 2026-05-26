@@ -1,0 +1,9 @@
+stateDiagram-v2
+    direction LR
+
+    home --> pickupPosition : when complete and moveToPickup
+    pickupPosition --> picking : when pickupComplete
+    picking --> home : when reset
+    home --> scorePosition : when moveToScore
+    scorePosition --> scoring : when scoreComplete
+    scoring --> home : when reset
