@@ -28,7 +28,7 @@ gradlePlugin {
     plugins {
         genStateMachineDiagram {
             id = "command3.smgen"
-            implementationClass = "frc.gradle.GenerateStateMachineDiagramTask"
+            implementationClass = "frc.gradle.GenerateStateMachineDiagramsTask"
             displayName = "State Machine Diagram Generator"
             description = 'Auto-generates a state machine diagram.'
             tags.set(['choreo', 'auto generate', 'auto code'])

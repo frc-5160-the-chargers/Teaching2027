@@ -8,6 +8,7 @@ plugins {
 }
 
 java {
+
 }
 
 def ROBOT_MAIN_CLASS = "first.Main"
@@ -120,4 +121,4 @@ kotlin {
 
 tasks.register("genDiagram", GenerateStateMachineDiagramsTask) {
 }
-tasks.build.dependsOn(genDiagram)
+//tasks.build.dependsOn(genDiagram)

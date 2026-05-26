@@ -1,41 +1,30 @@
 package first.robot.sdf;
 
 import first.util.GenerateDiagram;
-import org.wpilib.command3.Command;
-import org.wpilib.command3.Coroutine;
-import org.wpilib.command3.Mechanism;
-import org.wpilib.command3.StateMachine;
+import org.wpilib.command3.*;
 
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 
 public class OPStateMachines {
+    private static boolean someCond() { return false; }
+
+    private static int number = 0;
+    private static final Trigger someTrigger = new Trigger(() -> false);
+
     @GenerateDiagram
     public static StateMachine team2056TeleopStateMachine() {
-        BooleanSupplier homeButton = () -> false;
-        BooleanSupplier coralPickupButton = () -> false;
-        BooleanSupplier hasCoral = () -> false;
+        var hasCoral = new Trigger(() -> false);
+        var hasAlgae = new Trigger(() -> false);
 
-        BooleanSupplier hasAlgae = () -> false;
-        BooleanSupplier homeButtonAndHasAlgae = () -> homeButton.getAsBoolean() && hasAlgae.getAsBoolean();
-        BooleanSupplier homeButtonAndHasNoAlgae = () -> homeButton.getAsBoolean() && !hasAlgae.getAsBoolean();
-
-        BooleanSupplier l1ScoreButton = () -> false;
-        BooleanSupplier l2ScoreButton = () -> false;
-        BooleanSupplier l3ScoreButton = () -> false;
-        BooleanSupplier l4ScoreButton = () -> false;
-
-        BooleanSupplier l1ScoreButtonAndHasCoral = () -> l1ScoreButton.getAsBoolean() && hasCoral.getAsBoolean();
-        BooleanSupplier l2ScoreButtonAndHasCoral = () -> l2ScoreButton.getAsBoolean() && hasCoral.getAsBoolean();
-        BooleanSupplier l3ScoreButtonAndHasCoral = () -> l3ScoreButton.getAsBoolean() && hasCoral.getAsBoolean();
-        BooleanSupplier l4ScoreButtonAndHasCoral = () -> l4ScoreButton.getAsBoolean() && hasCoral.getAsBoolean();
-
-        BooleanSupplier l1ScoreButtonAndHasAlgae = () -> l1ScoreButton.getAsBoolean() && hasAlgae.getAsBoolean();
-        BooleanSupplier l4ScoreButtonAndHasAlgae = () -> l4ScoreButton.getAsBoolean() && hasAlgae.getAsBoolean();
-
-        BooleanSupplier algaeFloorPickupButton = () -> false;
-
-        BooleanSupplier scoreButton = () -> false;
+        var homeButton = new Trigger(() -> false);
+        var coralPickupButton = new Trigger(() -> false);
+        var l1ScoreButton = new Trigger(() -> false);;
+        var l2ScoreButton = new Trigger(() -> false);
+        var l3ScoreButton = new Trigger(() -> false);
+        var l4ScoreButton = new Trigger(() -> false);
+        var algaeFloorPickupButton = new Trigger(() -> false);
+        var scoreButton = new Trigger(() -> false);
 
         var sm = new StateMachine("Arm and Elevator");
 
@@ -54,10 +43,10 @@ public class OPStateMachines {
         StateMachine.State l3LowerScore = sm.addState(named("L3 Lower Score"));
         StateMachine.State l4LowerScore = sm.addState(named("L4 Lower Score"));
 
-        home.switchTo(l1Score).when(l1ScoreButtonAndHasCoral);
-        home.switchTo(l2Score).when(l2ScoreButtonAndHasCoral);
-        home.switchTo(l3Score).when(l3ScoreButtonAndHasCoral);
-        home.switchTo(l4Score).when(l4ScoreButtonAndHasCoral);
+        home.switchTo(l1Score).when(l1ScoreButton.and(hasCoral));
+        home.switchTo(l2Score).when(l2ScoreButton.and(hasCoral));
+        home.switchTo(l3Score).when(l3ScoreButton.and(hasCoral));
+        home.switchTo(l4Score).when(l4ScoreButton.and(hasCoral));
 
         l1Score.switchTo(spitScoreCoral).when(scoreButton);
         l2Score.switchTo(spitScoreCoral).when(scoreButton);
@@ -81,18 +70,32 @@ public class OPStateMachines {
 
         sm.switchFromAny(algaeFloorPickup, l2AlgaePickup, l3AlgaePickup)
                 .to(algaeHome)
-                .when(homeButtonAndHasAlgae);
+                .when(homeButton.and(hasAlgae));
 
-        algaeHome.switchTo(netScorePosition).when(l4ScoreButtonAndHasAlgae);
-        algaeHome.switchTo(processorScorePosition).when(l1ScoreButtonAndHasAlgae);
+        algaeHome.switchTo(netScorePosition).when(l4ScoreButton.and(hasAlgae));
+        algaeHome.switchTo(processorScorePosition).when(l1ScoreButton.and(hasAlgae));
 
-        netScorePosition.switchTo(algaeHome).when(homeButtonAndHasAlgae);
-        netScorePosition.switchTo(processorScorePosition).when(l1ScoreButtonAndHasAlgae);
-        netScorePosition.switchTo(home).when(homeButtonAndHasNoAlgae);
+        netScorePosition.switchTo(algaeHome).when(homeButton.and(hasAlgae));
+        netScorePosition.switchTo(processorScorePosition).when(l1ScoreButton.and(hasAlgae));
+        netScorePosition.switchTo(home).when(homeButton.and(hasAlgae.negate()));
+        netScorePosition.switchTo(() -> {
+            if (someCond()) {
+                return switch (number) {
+                    case 0 -> l2LowerScore;
+                    case 1 -> l3LowerScore;
+                    case 2 -> l4LowerScore;
+                    default -> l2LowerScore;
+                };
+            } else {
+                return l3LowerScore;
+            }
+        })
+            .whenComplete();
 
-        processorScorePosition.switchTo(algaeHome).when(homeButtonAndHasAlgae);
-        processorScorePosition.switchTo(netScorePosition).when(l4ScoreButtonAndHasAlgae);
-        processorScorePosition.switchTo(home).when(homeButtonAndHasNoAlgae);
+
+        processorScorePosition.switchTo(algaeHome).when(homeButton.and(hasAlgae));
+        processorScorePosition.switchTo(netScorePosition).when(l4ScoreButton.and(hasAlgae));
+        processorScorePosition.switchTo(home).when(homeButton.and(hasAlgae.negate()));
 
         return sm;
     }
