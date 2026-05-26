@@ -4,8 +4,8 @@ stateDiagram-v2
     home --> pickupPosition : when complete and moveToPickup
     pickupPosition --> picking : when pickupComplete
     picking --> home : when reset
-    home --> scorePosition : when (moveToScore)
-    scorePosition --> scoring : when (scoreComplete)
+    home --> scorePosition : when moveToScore
+    scorePosition --> scoring : when scoreComplete
     scoring --> home : when reset
 
     classDef initialState color:#00FF00

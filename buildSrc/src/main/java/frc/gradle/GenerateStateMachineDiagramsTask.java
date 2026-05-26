@@ -129,7 +129,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
         for (var entry: returnAnalyzer.analyze(toState.asLambdaExpr()).entrySet()) {
             var innerToState = entry.getKey();
             var additionalCond = entry.getValue();
-            if (additionalCond.contains("||") || additionalCond.contains("or")) {
+            if (additionalCond.contains("||") || additionalCond.contains(".or(")) {
                 additionalCond = "(" + additionalCond + ")";
             }
             var fullCond = transitionCond + " and " + additionalCond;
