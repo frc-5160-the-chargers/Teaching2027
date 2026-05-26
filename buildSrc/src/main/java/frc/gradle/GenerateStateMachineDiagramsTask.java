@@ -4,6 +4,7 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
@@ -36,12 +37,13 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
         CompilationUnit cu = StaticJavaParser.parse(sourceFile);
         cu.findAll(MethodDeclaration.class).forEach(method -> {
             boolean returnsStateMachine = method.getTypeAsString().equals("StateMachine");
-            boolean isAnnotated = method.getAnnotations().stream()
-                    .anyMatch(a -> a.getNameAsString().equals("GenerateDiagram"));
-            if (!returnsStateMachine || !isAnnotated) return;
+            var annotationOpt = method.getAnnotationByName("GenerateDiagram");
+            if (!returnsStateMachine || annotationOpt.isEmpty()) return;
 
-            String methodName = method.getNameAsString();
-            List<Transition> transitions = diagramMap.computeIfAbsent(methodName, k -> new ArrayList<>());
+            String diagramName = annotationOpt.get().toNormalAnnotationExpr()
+                    .flatMap(GenerateStateMachineDiagramsTask::getDiagramNameProperty)
+                    .orElse(method.getNameAsString());
+            List<Transition> transitions = diagramMap.computeIfAbsent(diagramName, k -> new ArrayList<>());
 
             method.findAll(MethodCallExpr.class).forEach(call -> {
                 boolean isWhen = call.getNameAsString().equals("when");
@@ -59,7 +61,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
                 var toState = toStateCall.getArguments().getFirst().orElseThrow().toString();
                 if (toStateCall.getNameAsString().equals("switchTo")) {
                     fromStates.add(toStateCall.getScope().orElseThrow().toString());
-                } else {
+                } else if (toStateCall.getNameAsString().equals("to")) {
                     // If it's just a regular "to", there must be a switchFromAny before it.
                     var argList = toStateCall.getScope()
                             .filter(s -> s instanceof MethodCallExpr)
@@ -88,6 +90,14 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
                 }
             });
         });
+    }
+
+    private static java.util.Optional<String> getDiagramNameProperty(NormalAnnotationExpr expr) {
+        return expr.getPairs().stream()
+            .filter(p -> p.getNameAsString().equals("diagramName"))
+            .findFirst()
+            .map(p -> p.getValue().asStringLiteralExpr().asString())
+            .filter(s -> !s.isEmpty());
     }
 
     private static void extractFromDirectory(String rootDir) throws IOException {

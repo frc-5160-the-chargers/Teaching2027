@@ -21,7 +21,7 @@ public class ExampleStateMachine {
      * Builds an example state machine demonstrating transitions.
      * This method is called by the Gradle task to generate the diagram.
      */
-    @GenerateDiagram
+    @GenerateDiagram(diagramName = "CustomExampleDiagram")
     public static StateMachine buildStateMachine() {
         // Create simple boolean suppliers for transitions
         BooleanSupplier moveToPickup = () -> false;
