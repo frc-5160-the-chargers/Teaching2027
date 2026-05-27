@@ -2,6 +2,7 @@ package frc.gradle;
 
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.ConditionalExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.LambdaExpr;
 import com.github.javaparser.ast.expr.SwitchExpr;
@@ -66,7 +67,11 @@ public class ReturnConditionAnalyzer {
             handleYield(stmt.asYieldStmt(), pathConds, result);
         } else if (stmt.isBlockStmt()) {
             walkBlock(stmt.asBlockStmt().getStatements(), pathConds, result);
-        } else if (!stmt.isExpressionStmt() && !stmt.isEmptyStmt()) {
+        } else if (stmt.isExpressionStmt()) {
+            var expr = stmt.asExpressionStmt().getExpression();
+            if (!expr.isConditionalExpr()) return;
+            handleInlineConditional(expr, pathConds, result);
+        } else if (!stmt.isEmptyStmt()) {
             // For any other statement type, descend into direct child statements
             stmt.findAll(Statement.class, s -> s != stmt && s.getParentNode().map(p -> p == stmt).orElse(false))
                     .forEach(child -> walkStatement(child, pathConds, result));
@@ -90,6 +95,20 @@ public class ReturnConditionAnalyzer {
                 mergeCondition(result, varName, condition.isEmpty() ? "true" : condition);
             }
         });
+    }
+
+    private void handleInlineConditional(Expression expr,
+                                         List<String> pathConds,
+                                         Map<String, String> result) {
+        if (!expr.isConditionalExpr()) {
+            mergeCondition(result, expr.toString().trim(), joinConditions(pathConds));
+            return;
+        }
+        var conditional = expr.asConditionalExpr();
+        String cond = conditional.getCondition().toString();
+
+        handleInlineConditional(conditional.getThenExpr(), append(pathConds, cond), result);
+        handleInlineConditional(conditional.getElseExpr(), append(pathConds, negate(cond)), result);
     }
 
     // -----------------------------------------------------------------------
@@ -217,11 +236,11 @@ public class ReturnConditionAnalyzer {
         if (cond.contains(" < "))  return cond.replace(" < ",  " >= ");
 
         boolean hasLogicalOps = cond.contains("&&") || cond.contains("||") || cond.contains(".and(") || cond.contains(".or(");
-        if (!hasLogicalOps) return "!" + cond;
+        if (hasLogicalOps) return "!(" + cond + ")";
         if (cond.startsWith("!") && !cond.startsWith("!(")) {
             return cond.substring(1);
         }
-        return "!(" + cond + ")";
+        return "!" + cond;
     }
 
     private List<String> append(List<String> conds, String newCond) {

@@ -7,6 +7,4 @@ import java.lang.annotation.Target;
  * Note that this doesn't support multiple state machines per method.
  */
 @Target(java.lang.annotation.ElementType.METHOD)
-public @interface GenerateDiagram {
-    String diagramName() default "";
-}
+public @interface GenerateDiagram {}

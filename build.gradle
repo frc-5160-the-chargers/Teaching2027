@@ -8,7 +8,8 @@ plugins {
 }
 
 java {
-
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 def ROBOT_MAIN_CLASS = "first.Main"
@@ -79,8 +80,12 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.1'
 }
+
+tasks.register("genDiagram", GenerateStateMachineDiagramsTask) {
+}
+project.compileJava.dependsOn(genDiagram)
 
 test {
     useJUnitPlatform()
@@ -115,10 +120,3 @@ tasks.withType(JavaCompile) {
 repositories {
     mavenCentral()
 }
-kotlin {
-    jvmToolchain(25)
-}
-
-tasks.register("genDiagram", GenerateStateMachineDiagramsTask) {
-}
-//tasks.build.dependsOn(genDiagram)

@@ -2,46 +2,58 @@ package first.robot.sdf;
 
 import first.util.GenerateDiagram;
 import org.wpilib.command3.*;
+import org.wpilib.command3.button.CommandGamepad;
+import first.util.StateMachine;
+import org.wpilib.command3.button.CommandNiDsXboxController;
+import org.wpilib.system.Filesystem;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Set;
-import java.util.function.BooleanSupplier;
 
 public class OPStateMachines {
-    private static boolean someCond() { return false; }
+    sealed interface Hello {
+        record A(double a) implements Hello {}
+        record B(double b) implements Hello {}
+    }
 
-    private static int number = 0;
-    private static final Trigger someTrigger = new Trigger(() -> false);
+    private static final CommandNiDsXboxController xbox = new CommandNiDsXboxController(0);
 
     @GenerateDiagram
     public static StateMachine team2056TeleopStateMachine() {
-        var hasCoral = new Trigger(() -> false);
-        var hasAlgae = new Trigger(() -> false);
+        var hasCoral = xbox.leftTrigger();
+        var hasAlgae = xbox.rightTrigger();
 
-        var homeButton = new Trigger(() -> false);
-        var coralPickupButton = new Trigger(() -> false);
-        var l1ScoreButton = new Trigger(() -> false);;
-        var l2ScoreButton = new Trigger(() -> false);
-        var l3ScoreButton = new Trigger(() -> false);
-        var l4ScoreButton = new Trigger(() -> false);
-        var algaeFloorPickupButton = new Trigger(() -> false);
-        var scoreButton = new Trigger(() -> false);
+        var homeButton = xbox.leftBumper();
+        var coralPickupButton = xbox.rightBumper();
+        var l1ScoreButton = xbox.povDown();;
+        var l2ScoreButton = xbox.povLeft();
+        var l3ScoreButton = xbox.povUp();
+        var l4ScoreButton = xbox.povRight();
+        var algaeFloorPickupButton = xbox.a();
+        var scoreButton = xbox.y();
 
-        var sm = new StateMachine("Arm and Elevator");
+        var sm = new StateMachine(
+            "2056 Teleop State Machine",
+            (_, value) -> writeToDeployFile("live.mermaid", value)
+        );
 
-        StateMachine.State home = sm.addState(named("Home"));
-        StateMachine.State coralPickup = sm.addState(named("Coral Pickup"));
+        var home = sm.addState(named("Home"));
+        var coralPickup = sm.addState(named("Coral Pickup"));
         sm.setInitialState(home);
         home.switchTo(coralPickup).when(coralPickupButton);
         coralPickup.switchTo(home).when(homeButton);
 
-        StateMachine.State l1Score = sm.addState(named("L1 Score"));
-        StateMachine.State l2Score = sm.addState(named("L2 Score"));
-        StateMachine.State l3Score = sm.addState(named("L3 Score"));
-        StateMachine.State l4Score = sm.addState(named("L4 Score"));
-        StateMachine.State spitScoreCoral = sm.addState(named("Spit Score Coral"));
-        StateMachine.State l2LowerScore = sm.addState(named("L2 Lower Score"));
-        StateMachine.State l3LowerScore = sm.addState(named("L3 Lower Score"));
-        StateMachine.State l4LowerScore = sm.addState(named("L4 Lower Score"));
+        var l1Score = sm.addState(named("L1 Score"));
+        var l2Score = sm.addState(named("L2 Score"));
+        var l3Score = sm.addState(named("L3 Score"));
+        var l4Score = sm.addState(named("L4 Score"));
+        var spitScoreCoral = sm.addState(named("Spit Score Coral"));
+        var l2LowerScore = sm.addState(named("L2 Lower Score"));
+        var l3LowerScore = sm.addState(named("L3 Lower Score"));
+        var l4LowerScore = sm.addState(named("L4 Lower Score"));
 
         home.switchTo(l1Score).when(l1ScoreButton.and(hasCoral));
         home.switchTo(l2Score).when(l2ScoreButton.and(hasCoral));
@@ -57,12 +69,12 @@ public class OPStateMachines {
                 .to(home)
                 .when(homeButton);
 
-        StateMachine.State algaeHome = sm.addState(named("Algae Home"));
-        StateMachine.State algaeFloorPickup = sm.addState(named("Algae Floor Pickup"));
-        StateMachine.State l2AlgaePickup = sm.addState(named("L2 Algae Pickup"));
-        StateMachine.State l3AlgaePickup = sm.addState(named("L3 Algae Pickup"));
-        StateMachine.State processorScorePosition = sm.addState(named("Processor Score Position"));
-        StateMachine.State netScorePosition = sm.addState(named("Net Score Position"));
+        var algaeHome = sm.addState(named("Algae Home"));
+        var algaeFloorPickup = sm.addState(named("Algae Floor Pickup"));
+        var l2AlgaePickup = sm.addState(named("L2 Algae Pickup"));
+        var l3AlgaePickup = sm.addState(named("L3 Algae Pickup"));
+        var processorScorePosition = sm.addState(named("Processor Score Position"));
+        var netScorePosition = sm.addState(named("Net Score Position"));
 
         home.switchTo(algaeHome).when(algaeFloorPickupButton);
         home.switchTo(l2AlgaePickup).when(l2ScoreButton);
@@ -76,22 +88,8 @@ public class OPStateMachines {
         algaeHome.switchTo(processorScorePosition).when(l1ScoreButton.and(hasAlgae));
 
         netScorePosition.switchTo(algaeHome).when(homeButton.and(hasAlgae));
-        netScorePosition.switchTo(processorScorePosition).when(l1ScoreButton.and(hasAlgae));
         netScorePosition.switchTo(home).when(homeButton.and(hasAlgae.negate()));
-        netScorePosition.switchTo(() -> {
-            if (someCond()) {
-                return switch (number) {
-                    case 0 -> l2LowerScore;
-                    case 1 -> l3LowerScore;
-                    case 2 -> l4LowerScore;
-                    default -> l2LowerScore;
-                };
-            } else {
-                return l3LowerScore;
-            }
-        })
-            .whenComplete();
-
+        netScorePosition.switchTo(processorScorePosition).when(l1ScoreButton.and(hasAlgae));
 
         processorScorePosition.switchTo(algaeHome).when(homeButton.and(hasAlgae));
         processorScorePosition.switchTo(netScorePosition).when(l4ScoreButton.and(hasAlgae));
@@ -104,7 +102,21 @@ public class OPStateMachines {
         return new Command() {
             @Override public String name() { return name; }
             @Override public Set<Mechanism> requirements() { return Set.of(); }
-            @Override public void run(Coroutine coroutine) { coroutine.yield(); }
+            @Override public void run(Coroutine coroutine) {
+                while (true) coroutine.yield();
+            }
         };
+    }
+
+    private static void writeToDeployFile(String filename, String content) {
+        // WPILib deploy directory path on the roboRIO
+        Path deployPath = Paths.get(Filesystem.getDeployDirectory().getPath(), filename);
+
+        try (FileWriter writer = new FileWriter(deployPath.toFile())) {
+            writer.write(content);
+            System.out.println("Successfully wrote to: " + deployPath);
+        } catch (IOException e) {
+            System.err.println("Failed to write file: " + e.getMessage());
+        }
     }
 }

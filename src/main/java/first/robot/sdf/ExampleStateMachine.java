@@ -2,7 +2,8 @@ package first.robot.sdf;
 
 import first.util.GenerateDiagram;
 import org.wpilib.command3.*;
-import org.wpilib.command3.StateMachine.State;
+import first.util.StateMachine;
+import first.util.StateMachine.State;
 
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -18,7 +19,7 @@ public class ExampleStateMachine {
      * Builds an example state machine demonstrating transitions.
      * This method is called by the Gradle task to generate the diagram.
      */
-    @GenerateDiagram(diagramName = "CustomExampleDiagram")
+    @GenerateDiagram
     public static StateMachine buildStateMachine() {
         // Create simple boolean suppliers for transitions
         BooleanSupplier moveToPickup = () -> false;
@@ -66,7 +67,7 @@ public class ExampleStateMachine {
         BooleanSupplier reset = () -> false;
 
         // Build the state machine
-        StateMachine sm = new StateMachine("Example Arm and Elevator");
+        StateMachine sm = new StateMachine("Test Lambdas");
 
         State home = sm.addState(named("Home"));
         State pickupPosition = sm.addState(named("Pickup Position"));
@@ -76,13 +77,7 @@ public class ExampleStateMachine {
 
         sm.setInitialState(home);
         sm.switchFromAny(home, scoring)
-            .to(() -> {
-                if (someCond()) {
-                    return scorePosition;
-                } else {
-                    return scorePosition;
-                }
-            })
+            .to(() -> !someCond() ? pickupPosition : scorePosition)
             .whenComplete();
 
         return sm;

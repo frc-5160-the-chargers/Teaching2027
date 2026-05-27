@@ -1,3 +1,4 @@
+
 stateDiagram-v2
     direction LR
 
@@ -24,14 +25,14 @@ stateDiagram-v2
     algaeHome --> netScorePosition : when l4ScoreButton.and(hasAlgae)
     algaeHome --> processorScorePosition : when l1ScoreButton.and(hasAlgae)
     netScorePosition --> algaeHome : when homeButton.and(hasAlgae)
-    netScorePosition --> processorScorePosition : when l1ScoreButton.and(hasAlgae)
     netScorePosition --> home : when homeButton.and(hasAlgae.negate())
-    netScorePosition --> l2LowerScore : when complete and ((someCond() && number == 0) || (someCond() && number != 0 && number != 1 && number != 2))
-    netScorePosition --> l3LowerScore : when complete and ((someCond() && number == 1) || (!someCond()))
-    netScorePosition --> l4LowerScore : when complete and someCond() && number == 2
+    netScorePosition --> processorScorePosition : when l1ScoreButton.and(hasAlgae)
     processorScorePosition --> algaeHome : when homeButton.and(hasAlgae)
     processorScorePosition --> netScorePosition : when l4ScoreButton.and(hasAlgae)
     processorScorePosition --> home : when homeButton.and(hasAlgae.negate())
 
-    classDef initialState color:#00FF00
-    class home initialState
+    classDef brightGreen color: #00FF00
+    classDef amber color: #FFBF00
+    class home brightGreen
+    class coralPickup amber
+    
