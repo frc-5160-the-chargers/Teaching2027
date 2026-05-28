@@ -5,6 +5,8 @@ import org.wpilib.command3.*;
 import org.wpilib.command3.button.CommandGamepad;
 import first.util.StateMachine;
 import org.wpilib.command3.button.CommandNiDsXboxController;
+import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.networktables.StringPublisher;
 import org.wpilib.system.Filesystem;
 
 import java.io.FileWriter;
@@ -20,6 +22,10 @@ public class OPStateMachines {
     }
 
     private static final CommandNiDsXboxController xbox = new CommandNiDsXboxController(0);
+    private static final StringPublisher diagramViz =
+        NetworkTableInstance.getDefault()
+            .getStringTopic("StateMachineViz")
+            .publish();
 
     @GenerateDiagram
     public static StateMachine team2056TeleopStateMachine() {
@@ -37,7 +43,7 @@ public class OPStateMachines {
 
         var sm = new StateMachine(
             "2056 Teleop State Machine",
-            (_, value) -> writeToDeployFile("live.mermaid", value)
+            (_, value) -> diagramViz.accept(value)
         );
 
         var home = sm.addState(named("Home"));
@@ -106,17 +112,5 @@ public class OPStateMachines {
                 while (true) coroutine.yield();
             }
         };
-    }
-
-    private static void writeToDeployFile(String filename, String content) {
-        // WPILib deploy directory path on the roboRIO
-        Path deployPath = Paths.get(Filesystem.getDeployDirectory().getPath(), filename);
-
-        try (FileWriter writer = new FileWriter(deployPath.toFile())) {
-            writer.write(content);
-            System.out.println("Successfully wrote to: " + deployPath);
-        } catch (IOException e) {
-            System.err.println("Failed to write file: " + e.getMessage());
-        }
     }
 }

@@ -126,7 +126,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
                 if (isWhenComplete) {
                     transitionCond = "when complete";
                 } else {
-                    var prefix = isWhen ? "when " : "when complete and ";
+                    var prefix = isWhen ? "" : "when complete and ";
                     var expr = transitionCondExpr.orElseThrow().toString();
                     expr = expr.replace("() -> ", "");
                     expr = expr.replace(".getAsBoolean()", "");
