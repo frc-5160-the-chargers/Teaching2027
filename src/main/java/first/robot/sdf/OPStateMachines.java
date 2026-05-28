@@ -1,26 +1,17 @@
 package first.robot.sdf;
 
 import first.util.GenerateDiagram;
-import org.wpilib.command3.*;
-import org.wpilib.command3.button.CommandGamepad;
 import first.util.StateMachine;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 import org.wpilib.command3.button.CommandNiDsXboxController;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.StringPublisher;
-import org.wpilib.system.Filesystem;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Set;
 
 public class OPStateMachines {
-    sealed interface Hello {
-        record A(double a) implements Hello {}
-        record B(double b) implements Hello {}
-    }
-
     private static final CommandNiDsXboxController xbox = new CommandNiDsXboxController(0);
     private static final StringPublisher diagramViz =
         NetworkTableInstance.getDefault()
@@ -34,7 +25,7 @@ public class OPStateMachines {
 
         var homeButton = xbox.leftBumper();
         var coralPickupButton = xbox.rightBumper();
-        var l1ScoreButton = xbox.povDown();;
+        var l1ScoreButton = xbox.povDown();
         var l2ScoreButton = xbox.povLeft();
         var l3ScoreButton = xbox.povUp();
         var l4ScoreButton = xbox.povRight();

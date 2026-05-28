@@ -4,7 +4,11 @@
 
 package first.util;
 
-import static org.wpilib.util.ErrorMessages.requireNonNullParam;
+import org.wpilib.annotation.NoDiscard;
+import org.wpilib.annotation.PostConstructionInitializer;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,11 +18,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
-import org.wpilib.annotation.NoDiscard;
-import org.wpilib.annotation.PostConstructionInitializer;
-import org.wpilib.command3.Command;
-import org.wpilib.command3.Coroutine;
-import org.wpilib.command3.Mechanism;
+import static org.wpilib.util.ErrorMessages.requireNonNullParam;
 
 /**
  * A declarative state machine that can be used to implement complex command routines. State machine

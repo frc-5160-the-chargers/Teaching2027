@@ -1,9 +1,12 @@
 package first.robot.sdf;
 
 import first.util.GenerateDiagram;
-import org.wpilib.command3.*;
 import first.util.StateMachine;
 import first.util.StateMachine.State;
+import org.wpilib.command3.Command;
+import org.wpilib.command3.Coroutine;
+import org.wpilib.command3.Mechanism;
+import org.wpilib.command3.Trigger;
 
 import java.util.Set;
 import java.util.function.BooleanSupplier;

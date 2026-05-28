@@ -10,7 +10,6 @@ import org.wpilib.command3.button.RobotModeTriggers;
 import org.wpilib.framework.TimedRobot;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.ProtobufPublisher;
-import org.wpilib.networktables.ProtobufTopic;
 
 
 /**
