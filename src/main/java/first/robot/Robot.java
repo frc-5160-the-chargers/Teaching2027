@@ -5,11 +5,13 @@
 package first.robot;
 
 import first.robot.sdf.OPStateMachines;
+import first.util.GraphLogger;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.command3.button.RobotModeTriggers;
+import org.wpilib.epilogue.logging.EpilogueBackend;
+import org.wpilib.epilogue.logging.NTEpilogueBackend;
 import org.wpilib.framework.TimedRobot;
 import org.wpilib.networktables.NetworkTableInstance;
-import org.wpilib.networktables.ProtobufPublisher;
 
 
 /**
@@ -18,13 +20,14 @@ import org.wpilib.networktables.ProtobufPublisher;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
-  private final ProtobufPublisher<Scheduler> schedulerLogger = NetworkTableInstance.getDefault().getProtobufTopic("Scheduler", Scheduler.proto).publish();
+  private final EpilogueBackend logger = new NTEpilogueBackend(NetworkTableInstance.getDefault());
 
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
-  public Robot() {
+  public Robot() { // once
+    GraphLogger.getDefault().start(logger::log);
     RobotModeTriggers.teleop()
       .whileTrue(OPStateMachines.team2056TeleopStateMachine());
   }
@@ -37,8 +40,8 @@ public class Robot extends TimedRobot {
    * SmartDashboard integrated updating.
    */
   @Override
-  public void robotPeriodic() {
+  public void robotPeriodic() { // 0.02
     Scheduler.getDefault().run();
-    schedulerLogger.accept(Scheduler.getDefault());
+    logger.log("Scheduler", Scheduler.getDefault(), Scheduler.proto);
   }
 }

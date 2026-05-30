@@ -2,7 +2,6 @@ package frc.gradle;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
@@ -20,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @DisableCachingByDefault
 public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
@@ -29,6 +29,8 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
         String initialState;
         List<String> stateDefinitionOrder = new ArrayList<>();
     }
+
+    private final Pattern unusedVarPattern = Pattern.compile("(?<=[(,\\s])_(?=[\\s,)->])");
 
     @Input
     @Optional
@@ -41,25 +43,22 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
 
     private void extractFromFile(File sourceFile, Map<String, Diagram> diagrams) throws IOException {
         // 1. Initialize configuration
-        ParserConfiguration config = new ParserConfiguration();
+        var config = new ParserConfiguration();
         config.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
         config.setPreprocessUnicodeEscapes(true);
         var parser = new JavaParser(config);
-        var returnAnalyzer = new ReturnConditionAnalyzer();
 
-        String content = Files.readString(sourceFile.toPath());
-        // JavaParser 3.28.1 (and earlier) has issues with unnamed variables (JEP 456)
-        // even with BLEEDING_EDGE. We replace them with a valid identifier before parsing.
-        // We look for '_' as a standalone parameter in lambda or catch, or local var.
-        // A simple approach is to replace it when it's surrounded by non-word characters
-        // but that might hit underscores in strings or comments. 
-        // Given the constraints and the specific error, we'll use a slightly more targeted regex.
-        content = content.replaceAll("(?<=[\\(,\\s])_(?=[\\s,\\)->])", "unused_var_");
+        var content = Files.readString(sourceFile.toPath());
+        // JavaParser 3.28.1 (and earlier) has issues with unnamed variables (JEP 456).
+        // We replace them with a valid identifier before parsing.
+        content = unusedVarPattern
+            .matcher(content)
+            .replaceAll(_ -> "unused_var_" + UUID.randomUUID().toString().substring(0, 8));
+
         var cu = parser.parse(content).getResult().orElseThrow();
         cu.findAll(MethodDeclaration.class).forEach(method -> {
-            boolean returnsStateMachine = method.getTypeAsString().equals("StateMachine");
-            var annotationOpt = method.getAnnotationByName("GenerateDiagram");
-            if (!returnsStateMachine || annotationOpt.isEmpty()) return;
+            var annotationOpt = method.getAnnotationByName("MakeStateMachineGraph");
+            if (!method.getTypeAsString().equals("StateMachine") || annotationOpt.isEmpty()) return;
 
             var variableDefs = method.findAll(VariableDeclarationExpr.class);
             var stateMachineDefs = variableDefs
@@ -76,7 +75,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
             } else if (stateMachineDefs.size() > 1) {
                 throw new RuntimeException(
                     "Multiple StateMachine declarations found in " + method.getNameAsString()
-                    + ". Currently, the @GenerateDiagram annotation doesn't support multiple StateMachine declarations in the same method."
+                    + ". Currently, the @MakeStateMachineGraph annotation doesn't support multiple StateMachine declarations in the same method."
                 );
             }
 
@@ -142,7 +141,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
                     var fromState = toStateCall.getScope().orElseThrow().toString();
                     if (toState.isLambdaExpr()) {
                         diagram.transitions.addAll(
-                            transitionsFromLambdaExpr(returnAnalyzer, toState, fromState, transitionCond)
+                            transitionsFromLambdaExpr(toState, fromState, transitionCond)
                         );
                     } else {
                         diagram.transitions.add(new Transition(fromState, toState.toString(), transitionCond));
@@ -157,7 +156,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
                     for (var fromState: argList.get()) {
                         if (toState.isLambdaExpr()) {
                             diagram.transitions.addAll(
-                                transitionsFromLambdaExpr(returnAnalyzer, toState, fromState.toString(), transitionCond)
+                                transitionsFromLambdaExpr(toState, fromState.toString(), transitionCond)
                             );
                         } else {
                             var t = new Transition(fromState.toString(), toState.toString(), transitionCond);
@@ -170,13 +169,12 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
     }
 
     private List<Transition> transitionsFromLambdaExpr(
-        ReturnConditionAnalyzer returnAnalyzer,
         Expression toState,
         String fromState,
         String transitionCond
     ) {
         var transitions = new ArrayList<Transition>();
-        for (var entry: returnAnalyzer.analyze(toState.asLambdaExpr()).entrySet()) {
+        for (var entry: ReturnConditionAnalyzer.analyze(toState.asLambdaExpr()).entrySet()) {
             var innerToState = entry.getKey();
             var additionalCond = entry.getValue();
             if (additionalCond.contains("||") || additionalCond.contains(".or(")) {
@@ -192,19 +190,19 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
         Map<String, Diagram> diagrams = new LinkedHashMap<>();
 
         Files.walk(Paths.get(rootDir))
-                .filter(path -> path.toString().endsWith(".java"))
-                .forEach(path -> {
-                    try {
-                        extractFromFile(path.toFile(), diagrams);
-                    } catch (IOException e) {
-                        System.err.println("Failed to parse: " + path + " — " + e.getMessage());
-                    }
-                });
+            .filter(path -> path.toString().endsWith(".java"))
+            .forEach(path -> {
+                try {
+                    extractFromFile(path.toFile(), diagrams);
+                } catch (IOException e) {
+                    System.err.println("Failed to parse: " + path + " — " + e.getMessage());
+                }
+            });
 
         for (var entry : diagrams.entrySet()) {
             var methodName = entry.getKey();
             var diagram = entry.getValue();
-            var deployDir = getJavaRoot().getOrElse("src/main/java/") + "../deploy/diagrams/";
+            var deployDir = getJavaRoot().getOrElse("src/main/java/") + "../deploy/stateMachineGraphs/";
             var file = new File(deployDir + methodName + ".mermaid");
             if (file.getParentFile() != null) {
                 file.getParentFile().mkdirs();
@@ -234,8 +232,7 @@ public abstract class GenerateStateMachineDiagramsTask extends DefaultTask {
         }
         if (diagram.initialState != null) {
             sb.append("\n    classDef brightGreen color: #00FF00");
-            sb.append("\n    classDef amber color: #FFBF00\n");
-            sb.append("    class ");
+            sb.append("\n    class ");
             sb.append(diagram.initialState);
             sb.append(" brightGreen\n");
         }

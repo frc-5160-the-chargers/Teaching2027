@@ -12,9 +12,7 @@ import org.wpilib.command3.Mechanism;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -63,14 +61,9 @@ import static org.wpilib.util.ErrorMessages.requireNonNullParam;
  */
 public final class StateMachine implements Command {
     private final String m_name;
-    private final BiConsumer<String, String> m_diagramLogger;
-    private final Optional<MermaidGraph> m_mermaidGraph;
+    private final GraphLogger m_logger;
     private State m_initialState = null;
     private final List<State> m_states = new ArrayList<>();
-
-    public StateMachine(String name) {
-        this(name, (_, _) -> {});
-    }
 
     /**
      * Creates a new state machine.
@@ -78,12 +71,15 @@ public final class StateMachine implements Command {
      * @param name The name of the state machine. Cannot be null. This will appear in telemetry as the
      *     {@link Command#name() name} of the state machine.
      */
-    public StateMachine(String name, BiConsumer<String, String> diagramLogger) {
+    public StateMachine(String name) {
+        this(name, GraphLogger.getDefault());
+    }
+
+    StateMachine(String name, GraphLogger logger) {
         requireNonNullParam(name, "name", "StateMachine");
         m_name = name;
-        m_diagramLogger = diagramLogger;
-        m_mermaidGraph = MermaidGraph.loadFromDeployDirectory(name);
-        logGraph(null, null);
+        m_logger = logger;
+        m_logger.updateStateMachineGraph(m_name, List.of(), m_states);
     }
 
     @Override
@@ -172,7 +168,7 @@ public final class StateMachine implements Command {
                     m_name + " does not have an initial state. Use .setInitialState() to provide one.");
         }
 
-        State previousState = null;
+        var history = new ArrayList<>(List.of(m_initialState));
         var currentState = m_initialState;
 
         outer_loop:
@@ -180,7 +176,7 @@ public final class StateMachine implements Command {
             final var currentCommand = currentState.command();
             coroutine.fork(currentCommand);
             currentState.runEnterCallbacks();
-            logGraph(currentState, previousState);
+            m_logger.updateStateMachineGraph(m_name, history, m_states);
             boolean didYield = false;
 
             while (coroutine.scheduler().isRunning(currentCommand)) {
@@ -195,9 +191,12 @@ public final class StateMachine implements Command {
                         // the transition signal to be a rising edge on the user-supplied condition to ensure
                         // that the transition is only triggered once per loop iteration.
                         currentState.runExitCallbacks();
-                        previousState = currentState;
                         coroutine.scheduler().cancel(currentCommand);
                         currentState = verifyState(transition.nextState());
+                        history.add(currentState);
+                        if (history.size() > GraphLogger.MAX_HISTORY_LENGTH) {
+                            history.removeFirst();
+                        }
                         continue outer_loop;
                     }
                 }
@@ -216,15 +215,18 @@ public final class StateMachine implements Command {
             // may not need them (and has slightly different behavior to SequentialCommandGroup, which
             // runs commands as fast as possible).
             currentState.runExitCallbacks();
-            previousState = currentState;
             currentState = verifyState(currentState.nextState());
+            history.add(currentState);
+            if (history.size() > GraphLogger.MAX_HISTORY_LENGTH) {
+                history.removeFirst();
+            }
             if (!didYield && currentState != null) {
                 // No need to yield if we're exiting the state machine
                 coroutine.yield();
             }
         }
 
-        logGraph(null, null);
+        m_logger.updateStateMachineGraph(m_name, List.of(), m_states);
     }
 
     private State verifyState(State next) {
@@ -237,21 +239,6 @@ public final class StateMachine implements Command {
         throw new IllegalStateException(
                 "The next state does not belong to this state machine. Check the state for "
                         + next.command().name());
-    }
-
-    private void logGraph(State current, State previous) {
-        System.out.println("A");
-        if (m_mermaidGraph.isEmpty()) return;
-        System.out.println("B");
-        var stateDefs = m_mermaidGraph.get().stateDefinitionOrder();
-        var graph = m_mermaidGraph.get().graph();
-        if (current != null) {
-            graph += "class " + stateDefs[m_states.indexOf(current)] + " brightGreen\n    ";
-        }
-        if (previous != null) {
-            graph += "class " + stateDefs[m_states.indexOf(previous)] + " amber\n    ";
-        }
-        m_diagramLogger.accept("StateMachineGraphs/" + m_name, graph);
     }
 
     /**

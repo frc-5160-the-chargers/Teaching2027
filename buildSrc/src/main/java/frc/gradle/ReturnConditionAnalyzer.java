@@ -1,8 +1,5 @@
 package frc.gradle;
 
-import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.expr.ConditionalExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.LambdaExpr;
 import com.github.javaparser.ast.expr.SwitchExpr;
@@ -12,28 +9,19 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Analyzes a Java method and builds a map of:
- *   returnedVariableName -> condition string that must be true for that return to execute
- * Supports arbitrarily nested if/else-if/else chains, classic switch statements (colon),
- * and modern switch expressions (arrow / Java 14+).
+ * Statically analyzes a lambda body and builds a map of: returnedVariableName -> condition string
+ * that must be true for that return to execute.
  */
 public class ReturnConditionAnalyzer {
-
-    public ReturnConditionAnalyzer() {
-        // Enable Java 14+ syntax (switch expressions, arrow cases, yield) globally.
-        StaticJavaParser.getParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17);
-    }
-
     /**
-     * Entry point: parse the method source and return the condition map.
+     * Analyzes a lambda expression to determine
      *
-     * @param method  full source of a single lambda
+     * @param expr  full source of a single lambda
      * @return LinkedHashMap preserving insertion order, keyed by returned variable name
      */
-    public Map<String, String> analyze(LambdaExpr method) {
+    public static Map<String, String> analyze(LambdaExpr expr) {
         Map<String, String> result = new LinkedHashMap<>();
-        var body = method.getBody();
+        var body = expr.getBody();
         if (body.isBlockStmt()) {
             walkBlock(body.asBlockStmt().getStatements(), Collections.emptyList(), result);
         } else {
@@ -46,7 +34,7 @@ public class ReturnConditionAnalyzer {
     // Recursive statement walker
     // -----------------------------------------------------------------------
 
-    private void walkBlock(List<Statement> stmts,
+    private static void walkBlock(List<Statement> stmts,
                            List<String> pathConds,
                            Map<String, String> result) {
         for (Statement stmt : stmts) {
@@ -54,7 +42,7 @@ public class ReturnConditionAnalyzer {
         }
     }
 
-    private void walkStatement(Statement stmt,
+    private static void walkStatement(Statement stmt,
                                List<String> pathConds,
                                Map<String, String> result) {
         if (stmt.isReturnStmt()) {
@@ -82,7 +70,7 @@ public class ReturnConditionAnalyzer {
     // Return — handles both plain returns and "return <switchExpr>"
     // -----------------------------------------------------------------------
 
-    private void handleReturn(ReturnStmt ret,
+    private static void handleReturn(ReturnStmt ret,
                               List<String> pathConds,
                               Map<String, String> result) {
         ret.getExpression().ifPresent(expr -> {
@@ -97,7 +85,7 @@ public class ReturnConditionAnalyzer {
         });
     }
 
-    private void handleInlineConditional(Expression expr,
+    private static void handleInlineConditional(Expression expr,
                                          List<String> pathConds,
                                          Map<String, String> result) {
         if (!expr.isConditionalExpr()) {
@@ -116,7 +104,7 @@ public class ReturnConditionAnalyzer {
     //   e.g.  case 1 -> { yield x; }
     // -----------------------------------------------------------------------
 
-    private void handleYield(YieldStmt yield,
+    private static void handleYield(YieldStmt yield,
                              List<String> pathConds,
                              Map<String, String> result) {
         String varName = yield.getExpression().toString().trim();
@@ -128,7 +116,7 @@ public class ReturnConditionAnalyzer {
     // Classic switch statement  (case N:  ...  return x;)
     // -----------------------------------------------------------------------
 
-    private void handleSwitchStmt(SwitchStmt sw,
+    private static void handleSwitchStmt(SwitchStmt sw,
                                   List<String> pathConds,
                                   Map<String, String> result) {
         walkSwitchEntries(sw.getSelector().toString(), sw.getEntries(), pathConds, result);
@@ -138,7 +126,7 @@ public class ReturnConditionAnalyzer {
     // Modern switch expression  (case N -> x  /  case N -> { yield x; })
     // -----------------------------------------------------------------------
 
-    private void handleSwitchExpr(SwitchExpr sw,
+    private static void handleSwitchExpr(SwitchExpr sw,
                                   List<String> pathConds,
                                   Map<String, String> result) {
         walkSwitchEntries(sw.getSelector().toString(), sw.getEntries(), pathConds, result);
@@ -148,7 +136,7 @@ public class ReturnConditionAnalyzer {
     // Shared switch-entry walker (handles both SwitchStmt and SwitchExpr)
     // -----------------------------------------------------------------------
 
-    private void walkSwitchEntries(String selector,
+    private static void walkSwitchEntries(String selector,
                                    List<SwitchEntry> entries,
                                    List<String> pathConds,
                                    Map<String, String> result) {
@@ -196,7 +184,7 @@ public class ReturnConditionAnalyzer {
      * bare expression (not a block and not a throw/yield statement).
      * e.g.  case 1 -> x;
      */
-    private boolean isArrowExpressionEntry(SwitchEntry entry) {
+    private static boolean isArrowExpressionEntry(SwitchEntry entry) {
         if (entry.getType() != SwitchEntry.Type.EXPRESSION) return false;
         return entry.getStatements().size() == 1
                 && entry.getStatements().get(0).isExpressionStmt();
@@ -206,7 +194,7 @@ public class ReturnConditionAnalyzer {
     // If / else-if / else
     // -----------------------------------------------------------------------
 
-    private void handleIf(IfStmt ifStmt,
+    private static void handleIf(IfStmt ifStmt,
                           List<String> pathConds,
                           Map<String, String> result) {
         String cond = ifStmt.getCondition().toString();
@@ -224,7 +212,7 @@ public class ReturnConditionAnalyzer {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private String negate(String cond) {
+    private static String negate(String cond) {
         cond = cond.trim();
         if (cond.startsWith("!(") && cond.endsWith(")")) return cond.substring(2, cond.length() - 1);
         if (cond.endsWith(".negate()")) return cond.substring(0, cond.length() - 9);
@@ -243,14 +231,14 @@ public class ReturnConditionAnalyzer {
         return "!" + cond;
     }
 
-    private List<String> append(List<String> conds, String newCond) {
+    private static List<String> append(List<String> conds, String newCond) {
         if (newCond == null || newCond.isEmpty()) return conds;
         List<String> copy = new ArrayList<>(conds);
         copy.add(newCond);
         return copy;
     }
 
-    private String joinConditions(List<String> conds) {
+    private static String joinConditions(List<String> conds) {
         if (conds.isEmpty()) return "";
         return String.join(" && ", conds);
     }
@@ -261,7 +249,7 @@ public class ReturnConditionAnalyzer {
      *   (existing) || (incoming)
      * This handles the case where the same variable is returned from multiple branches.
      */
-    private void mergeCondition(Map<String, String> result, String varName, String newCond) {
+    private static void mergeCondition(Map<String, String> result, String varName, String newCond) {
         result.merge(varName, newCond, (existing, incoming) ->
                 "(" + existing + ") || (" + incoming + ")");
     }

@@ -1,24 +1,18 @@
 package first.robot.sdf;
 
-import first.util.GenerateDiagram;
+import first.util.MakeStateMachineGraph;
 import first.util.StateMachine;
 import org.wpilib.command3.Command;
 import org.wpilib.command3.Coroutine;
 import org.wpilib.command3.Mechanism;
 import org.wpilib.command3.button.CommandNiDsXboxController;
-import org.wpilib.networktables.NetworkTableInstance;
-import org.wpilib.networktables.StringPublisher;
 
 import java.util.Set;
 
 public class OPStateMachines {
     private static final CommandNiDsXboxController xbox = new CommandNiDsXboxController(0);
-    private static final StringPublisher diagramViz =
-        NetworkTableInstance.getDefault()
-            .getStringTopic("StateMachineViz")
-            .publish();
 
-    @GenerateDiagram
+    @MakeStateMachineGraph
     public static StateMachine team2056TeleopStateMachine() {
         var hasCoral = xbox.leftTrigger();
         var hasAlgae = xbox.rightTrigger();
@@ -32,10 +26,7 @@ public class OPStateMachines {
         var algaeFloorPickupButton = xbox.a();
         var scoreButton = xbox.y();
 
-        var sm = new StateMachine(
-            "2056 Teleop State Machine",
-            (_, value) -> diagramViz.accept(value)
-        );
+        var sm = new StateMachine("2056 Teleop State Machine");
 
         var home = sm.addState(named("Home"));
         var coralPickup = sm.addState(named("Coral Pickup"));

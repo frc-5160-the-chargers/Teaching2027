@@ -1,6 +1,6 @@
 package first.robot.sdf;
 
-import first.util.GenerateDiagram;
+import first.util.MakeStateMachineGraph;
 import first.util.StateMachine;
 import first.util.StateMachine.State;
 import org.wpilib.command3.Command;
@@ -22,7 +22,7 @@ public class ExampleStateMachine {
      * Builds an example state machine demonstrating transitions.
      * This method is called by the Gradle task to generate the diagram.
      */
-    @GenerateDiagram
+    @MakeStateMachineGraph
     public static StateMachine buildStateMachine() {
         // Create simple boolean suppliers for transitions
         BooleanSupplier moveToPickup = () -> false;
@@ -60,7 +60,7 @@ public class ExampleStateMachine {
     private static int number = 0;
     private static final Trigger someTrigger = new Trigger(() -> false);
 
-    @GenerateDiagram
+    @MakeStateMachineGraph
     public static StateMachine testLambdas() {
         // Create simple boolean suppliers for transitions
         BooleanSupplier moveToPickup = () -> false;
