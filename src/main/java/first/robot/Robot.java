@@ -5,7 +5,9 @@
 package first.robot;
 
 import org.wpilib.command3.Scheduler;
+import org.wpilib.command3.button.CommandGamepad;
 import org.wpilib.framework.TimedRobot;
+
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in
@@ -13,12 +15,18 @@ import org.wpilib.framework.TimedRobot;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
+  private final CommandGamepad xbox = new CommandGamepad(0);
+  private final Arm arm = new Arm();
+
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public Robot() {
+    xbox.rightBumper().whileTrue(arm.runArmAt7Volts());
   }
+
+  private void runBackgroundTasks() {}
 
   /**
    * This function is called every 20 ms, no matter the mode. Use this for items like diagnostics
