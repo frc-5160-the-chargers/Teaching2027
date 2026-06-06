@@ -11,8 +11,10 @@ import org.wpilib.command3.button.RobotModeTriggers;
 import org.wpilib.epilogue.logging.EpilogueBackend;
 import org.wpilib.epilogue.logging.NTEpilogueBackend;
 import org.wpilib.framework.TimedRobot;
+import org.wpilib.math.system.DCMotor;
+import org.wpilib.math.system.Models;
 import org.wpilib.networktables.NetworkTableInstance;
-
+import org.wpilib.simulation.DCMotorSim;
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in
@@ -22,14 +24,18 @@ import org.wpilib.networktables.NetworkTableInstance;
 public class Robot extends TimedRobot {
   private final EpilogueBackend logger = new NTEpilogueBackend(NetworkTableInstance.getDefault());
 
+  private final DCMotorSim sim = new DCMotorSim(
+      Models.singleJointedArmFromPhysicalConstants(DCMotor.getNEO(1), 0.025, 1.0),
+      DCMotor.getNEO(1)
+  );
+
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public Robot() { // once
     GraphLogger.getDefault().start(logger::log);
-    RobotModeTriggers.teleop()
-      .whileTrue(OPStateMachines.team2056TeleopStateMachine());
+    RobotModeTriggers.teleop().whileTrue(OPStateMachines.team2056TeleopStateMachine());
   }
 
   /**

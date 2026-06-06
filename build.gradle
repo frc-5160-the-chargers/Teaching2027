@@ -1,10 +1,11 @@
-import frc.gradle.GenerateStateMachineDiagramsTask
+import frc.gradle.MakeStateMachineGraphsTask
 
 plugins {
     id "java"
     id "org.wpilib.GradleRIO" version "2027.0.0-alpha-6"
     id "com.gradleup.shadow" version "9.3.0"
     id 'org.jetbrains.kotlin.jvm'
+    id 'com.diffplug.spotless' version '8.6.0'
 }
 
 java {
@@ -80,12 +81,12 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.1'
+    implementation "org.yaml:snakeyaml:2.2"
 }
 
-tasks.register("genDiagram", GenerateStateMachineDiagramsTask) {
+tasks.register("genDiagram", MakeStateMachineGraphsTask) {
 }
-project.compileJava.dependsOn(genDiagram)
+project.compileJava.finalizedBy(genDiagram)
 
 test {
     useJUnitPlatform()
@@ -119,4 +120,15 @@ tasks.withType(JavaCompile) {
 }
 repositories {
     mavenCentral()
+}
+
+spotless {
+    kotlin {
+        replaceRegex 'Ignore Arrow symbol', '-->', '> /*WAS_ARROW*/'
+        ktfmt().kotlinlangStyle()
+        replaceRegex 'Restore Arrow symbol', '> /\\*WAS_ARROW\\*/', '-->'
+    }
+    java {
+        googleJavaFormat()
+    }
 }
