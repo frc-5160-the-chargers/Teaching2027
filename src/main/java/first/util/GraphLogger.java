@@ -5,17 +5,16 @@
 package first.util;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.regex.Pattern;
+import io.avaje.jsonb.Json;
+import io.avaje.jsonb.JsonType;
+import io.avaje.jsonb.Jsonb;
 import org.wpilib.driverstation.internal.DriverStationBackend;
 import org.wpilib.system.Filesystem;
-import org.yaml.snakeyaml.Yaml;
 
 /**
  * GraphLogger is responsible for managing and logging state machine graphs that have been generated
@@ -27,7 +26,12 @@ public class GraphLogger {
 
   private static final GraphLogger instance = new GraphLogger();
 
-  private record StateMachineGraph(String graph, List<String> stateDefinitionOrder) {}
+  @Json
+  static class StateMachineGraph {
+    @Json.Raw String transitions = "";
+    List<String> stateDefinitionOrder = List.of();
+    String initialState = "";
+  }
 
   /**
    * Returns the default instance of the GraphLogger.
@@ -42,10 +46,9 @@ public class GraphLogger {
   protected GraphLogger() {}
 
   private boolean hasStarted = false;
-  private BiConsumer<String, String> logger = (key, value) -> {};
-  private final Yaml yaml = new Yaml();
-  private final Pattern frontmatterPattern =
-      Pattern.compile("^---\\s*(.*?)\\s*---", Pattern.DOTALL);
+  private BiConsumer<String, String> graphLogger = (key, value) -> {};
+  private BiConsumer<String, String[]> historyLogger = (key, value) -> {};
+  private final JsonType<StateMachineGraph> graphType = Jsonb.instance().type(StateMachineGraph.class);
   private final Map<String, StateMachineGraph> stateMachineGraphs = new HashMap<>();
 
   /**
@@ -53,56 +56,38 @@ public class GraphLogger {
    *
    * <p>This will load the state machine graphs from the filesystem and start accepting updates.
    *
-   * @param logger a consumer that handles the logging of graph data (key, value)
+   * @param graphLogger a consumer that handles the logging of graph data (key, value)
+   * @param historyLogger a consumer that handles the logging of history data (key, value)
    */
-  public void start(BiConsumer<String, String> logger) {
+  public void start(BiConsumer<String, String> graphLogger, BiConsumer<String, String[]> historyLogger) {
     this.hasStarted = true;
-    this.logger = logger;
+    this.graphLogger = graphLogger;
+    this.historyLogger = historyLogger;
     loadStateMachineGraphs();
   }
 
   private void loadStateMachineGraphs() {
     var stateMachineGraphsDir =
-        new File(Filesystem.getDeployDirectory(), "stateMachineGraphs").listFiles();
+        new File(Filesystem.getDeployDirectory(), "stateMachineGraphData").listFiles();
     if (stateMachineGraphsDir == null) {
       return;
     }
     for (var file : stateMachineGraphsDir) {
-      if (!file.getName().endsWith(".mermaid")) {
+      if (!file.getName().endsWith(".json")) {
         continue;
       }
-      var stateMachineName = file.getName().replace(".mermaid", "");
+      var stateMachineName = file.getName().replace(".json", "");
       try {
-        var graph = Files.readString(file.toPath());
-        if (!graph.contains("---")) {
-          continue;
-        }
-        var frontmatter = extractFrontmatter(graph);
-        var stateDefOrderProperty = frontmatter.get("state_definition_order");
-        var stateDefOrder = new ArrayList<String>();
-        if (stateDefOrderProperty instanceof List<?> list) {
-          for (var item : list) {
-            stateDefOrder.add(item.toString());
-          }
-          graph = graph.substring(graph.lastIndexOf("---") + 3);
-          stateMachineGraphs.put(stateMachineName, new StateMachineGraph(graph, stateDefOrder));
-          logger.accept("StateMachineGraphs/" + stateMachineName, graph);
-        }
-      } catch (IOException e) {
+        var data = graphType.fromJson(Files.readString(file.toPath()));
+        stateMachineGraphs.put(stateMachineName, data);
+        graphLogger.accept("StateMachines/" + stateMachineName + "/graph", data.transitions);
+        graphLogger.accept("StateMachines/" + stateMachineName + "/.type", "StateMachineGraph");
+      } catch (Exception e) {
         DriverStationBackend.reportError(
             "The graph of " + stateMachineName + " could not be loaded. Error: " + e.getMessage(),
             false);
       }
     }
-  }
-
-  private Map<String, Object> extractFrontmatter(String mermaidCode) {
-    var matcher = frontmatterPattern.matcher(mermaidCode);
-    if (!matcher.find()) {
-      return Map.of();
-    }
-    Map<String, Object> res = yaml.load(matcher.group(1));
-    return res == null ? Map.of() : res;
   }
 
   void updateStateMachineGraph(
@@ -119,9 +104,10 @@ public class GraphLogger {
       return;
     }
     var stateDefs = graph.stateDefinitionOrder;
-    var historyAsStringList =
-        history.stream().map(s -> stateDefs.get(allStates.indexOf(s))).toList();
-    var graphStr = "---\nhistory: " + historyAsStringList + "\n---\n" + graph.graph();
-    logger.accept("StateMachineGraphs/" + stateMachineName, graphStr);
+    var historyAsArray = new String[history.size()];
+    for (int i = 0; i < history.size(); i++) {
+      historyAsArray[i] = stateDefs.get(allStates.indexOf(history.get(i)));
+    }
+    historyLogger.accept("StateMachines/" + stateMachineName + "/history", historyAsArray);
   }
 }
