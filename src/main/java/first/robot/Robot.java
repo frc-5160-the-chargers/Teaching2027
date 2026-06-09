@@ -32,7 +32,7 @@ public class Robot extends TimedRobot {
    */
   public Robot() { // once
     GraphLogger.getDefault().start(logger::log, logger::log);
-    RobotModeTriggers.teleop().whileTrue(team2056TeleopStateMachine());
+    RobotModeTriggers.teleop().whileTrue(exampleStateMachine());
   }
 
   /**
