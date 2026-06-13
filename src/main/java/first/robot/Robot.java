@@ -5,7 +5,6 @@
 package first.robot;
 
 import org.wpilib.command3.Scheduler;
-import org.wpilib.command3.button.CommandGamepad;
 import org.wpilib.framework.TimedRobot;
 
 
@@ -15,7 +14,6 @@ import org.wpilib.framework.TimedRobot;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
-
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
