@@ -4,6 +4,17 @@
 
 package first.robot;
 
+import com.ctre.phoenix6.CANBus;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
+import com.revrobotics.spark.SparkLowLevel;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.command3.button.CommandGamepad;
 import org.wpilib.framework.TimedRobot;
@@ -15,12 +26,27 @@ import org.wpilib.framework.TimedRobot;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
+  private TalonFX kraken = new TalonFX(5, CANBus.systemcore(2));
+  private SparkMax neo = new SparkMax(2,5, SparkLowLevel.MotorType.kBrushless);
+
 
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public Robot() {
+    var config = new TalonFXConfiguration();
+    config.CurrentLimits.SupplyCurrentLimit = 80;
+    config.CurrentLimits.SupplyCurrentLimitEnable = true;
+    config.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+    config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+    kraken.getConfigurator().apply(config);
+
+    var config2 = new SparkMaxConfig();
+    config2.smartCurrentLimit(70);
+    config2.inverted(true);
+    config2.idleMode(SparkBaseConfig.IdleMode.kBrake);
+    neo.configure(config2, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
   }
 
 
@@ -34,5 +60,7 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {
     Scheduler.getDefault().run();
+    kraken.setVoltage(12.0);
+    neo.setVoltage(12.0);
   }
 }
