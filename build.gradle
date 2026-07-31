@@ -58,6 +58,7 @@ def includeDesktopSupport = true
 // Also defines JUnit 5.
 dependencies {
     annotationProcessor wpi.java.deps.wpilibAnnotations()
+    annotationProcessor project(':javacPlugin')
     implementation wpi.java.deps.wpilib()
     implementation wpi.java.vendor.java()
 
@@ -78,6 +79,8 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation("io.github.battery-staple:KMeasure:1.4.1")
+    implementation project(':javacPlugin')
 }
 
 test {
@@ -109,6 +112,11 @@ wpi.java.configureTestTasks(test)
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
+    options.compilerArgs.add '-Xplugin:MyPlugin'
+    options.compilerArgs.addAll([
+        '--add-exports', 'jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED',
+        '--add-exports', 'jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED'
+    ])
 }
 repositories {
     mavenCentral()

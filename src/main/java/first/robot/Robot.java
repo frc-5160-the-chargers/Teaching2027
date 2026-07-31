@@ -6,7 +6,8 @@ package first.robot;
 
 import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
-
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.CANBus;
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in
@@ -20,6 +21,8 @@ public class Robot extends TimedRobot {
    */
   public Robot() {
   }
+
+  private final TalonFX motor = new TalonFX(0, CANBus.systemcore(0));
 
 
   /**
