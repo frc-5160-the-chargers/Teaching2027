@@ -116,27 +116,21 @@ public class Unit {
         // Compound unit definitions
         COMPOUND_UNITS.put("newton", "kg * m / s^2");
         COMPOUND_UNITS.put("newtons", "kg * m / s^2");
-        COMPOUND_UNITS.put("n", "kg * m / s^2");
 
         COMPOUND_UNITS.put("joule", "kg * m^2 / s^2");
         COMPOUND_UNITS.put("joules", "kg * m^2 / s^2");
-        COMPOUND_UNITS.put("j", "kg * m^2 / s^2");
 
         COMPOUND_UNITS.put("watt", "kg * m^2 / s^3");
         COMPOUND_UNITS.put("watts", "kg * m^2 / s^3");
-        COMPOUND_UNITS.put("w", "kg * m^2 / s^3");
 
         COMPOUND_UNITS.put("pascal", "kg / (m * s^2)");
         COMPOUND_UNITS.put("pascals", "kg / (m * s^2)");
-        COMPOUND_UNITS.put("pa", "kg / (m * s^2)");
 
         COMPOUND_UNITS.put("coulomb", "A * s");
         COMPOUND_UNITS.put("coulombs", "A * s");
-        COMPOUND_UNITS.put("c", "A * s");
 
         COMPOUND_UNITS.put("volt", "kg * m^2 / (s^3 * A)");
         COMPOUND_UNITS.put("volts", "kg * m^2 / (s^3 * A)");
-        COMPOUND_UNITS.put("v", "kg * m^2 / (s^3 * A)");
 
         COMPOUND_UNITS.put("ohm", "kg * m^2 / (s^3 * A^2)");
         COMPOUND_UNITS.put("ohms", "kg * m^2 / (s^3 * A^2)");
@@ -164,10 +158,6 @@ public class Unit {
 
     public Map<String, Integer> getBaseUnits() {
         return baseUnits;
-    }
-
-    public String getRawExpression() {
-        return rawExpression;
     }
 
     public boolean isDimensionless() {
@@ -323,6 +313,9 @@ public class Unit {
                 }
             }
             if (exp instanceof Variable) {
+                if (!isKnownUnitTerm(exp.toString())) {
+                    throw new IllegalArgumentException("Unknown unit term: " + exp);
+                }
                 result.add(canonicalize(exp.toString()));
             } else {
                 result.add(exp);
@@ -413,7 +406,7 @@ public class Unit {
         for (Map.Entry<String, Integer> entry : other.baseUnits.entrySet()) {
             newMap.put(entry.getKey(), newMap.getOrDefault(entry.getKey(), 0) + entry.getValue());
         }
-        return new Unit(newMap, this.rawExpression + "*" + other.rawExpression);
+        return new Unit(newMap, "(" + this.rawExpression + ")*(" + other.rawExpression + ")");
     }
 
     public Unit divide(Unit other) {
@@ -423,82 +416,12 @@ public class Unit {
         for (Map.Entry<String, Integer> entry : other.baseUnits.entrySet()) {
             newMap.put(entry.getKey(), newMap.getOrDefault(entry.getKey(), 0) - entry.getValue());
         }
-        return new Unit(newMap, this.rawExpression + "/" + other.rawExpression);
+        return new Unit(newMap, "(" + this.rawExpression + ")/(" + other.rawExpression + ")");
     }
 
     public String toHumanName() {
         if (isDimensionless()) return "dimensionless";
-
-        String compoundName = getKnownCompoundName(this.baseUnits);
-        if (compoundName != null) {
-            return compoundName;
-        }
-
-        StringBuilder num = new StringBuilder();
-        StringBuilder den = new StringBuilder();
-
-        for (Map.Entry<String, Integer> entry : baseUnits.entrySet()) {
-            String canonical = entry.getKey();
-            int exp = entry.getValue();
-            String name = getHumanNameForCanonical(canonical);
-
-            if (exp > 0) {
-                if (num.length() > 0) num.append("*");
-                num.append(name);
-                if (exp > 1) num.append("^").append(exp);
-            } else if (exp < 0) {
-                if (den.length() > 0) den.append("*");
-                den.append(name);
-                if (exp < -1) den.append("^").append(-exp);
-            }
-        }
-
-        if (num.length() == 0) num.append("1");
-        if (den.length() > 0) {
-            return num.toString() + "/" + den.toString();
-        } else {
-            return num.toString();
-        }
-    }
-
-    private static String getKnownCompoundName(Map<String, Integer> baseUnits) {
-        if (baseUnits.equals(parse("N").getBaseUnits())) return "newtons";
-        if (baseUnits.equals(parse("J").getBaseUnits())) return "joules";
-        if (baseUnits.equals(parse("W").getBaseUnits())) return "watts";
-        if (baseUnits.equals(parse("Pa").getBaseUnits())) return "pascals";
-        if (baseUnits.equals(parse("C").getBaseUnits())) return "coulombs";
-        if (baseUnits.equals(parse("V").getBaseUnits())) return "volts";
-        if (baseUnits.equals(parse("ohm").getBaseUnits())) return "ohms";
-        if (baseUnits.equals(parse("F").getBaseUnits())) return "farads";
-        if (baseUnits.equals(parse("Hz").getBaseUnits())) return "hertz";
-        return null;
-    }
-
-    private static String getHumanNameForCanonical(String canonical) {
-        return switch (canonical) {
-            case "rot" -> "rotations";
-            case "rad" -> "radians";
-            case "deg" -> "degrees";
-            case "s" -> "seconds";
-            case "min" -> "minutes";
-            case "h" -> "hours";
-            case "m" -> "meters";
-            case "mm" -> "millimeters";
-            case "cm" -> "centimeters";
-            case "km" -> "kilometers";
-            case "ms" -> "milliseconds";
-            case "kg" -> "kilograms";
-            case "mg" -> "milligrams";
-            case "g" -> "grams";
-            case "A" -> "amperes";
-            case "mA" -> "milliamperes";
-            case "in" -> "inches";
-            case "ft" -> "feet";
-            case "K" -> "kelvins";
-            case "mol" -> "moles";
-            case "cd" -> "candelas";
-            default -> canonical;
-        };
+        return rawExpression;
     }
 
     @Override

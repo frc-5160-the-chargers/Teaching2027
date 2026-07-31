@@ -1,11 +1,10 @@
 import org.example.HasUnit;
 
 public class Hi {
-    @HasUnit("volts/(m/s)") double a = 0.1;
-    @HasUnit("m/s") double c = 1;
-    @HasUnit("volts") double b = 0;
+    @HasUnit("meters/second") double mm = 0.1;
+    @HasUnit("m/s") double m = 1;
 
     {
-        b += a * c;
+        double bad = mm + m;
     }
 }
