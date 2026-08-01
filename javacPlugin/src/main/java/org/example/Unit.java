@@ -18,8 +18,6 @@ public class Unit {
         MASS,
         ELECTRIC_CURRENT,
         TEMPERATURE,
-        AMOUNT_OF_SUBSTANCE,
-        LUMINOUS_INTENSITY,
         UNKNOWN
     }
 
@@ -69,14 +67,8 @@ public class Unit {
         BASE_UNITS.put("kelvin", "K");
         BASE_UNITS.put("kelvins", "K");
         BASE_UNITS.put("k", "K");
-
-        BASE_UNITS.put("mole", "mol");
-        BASE_UNITS.put("moles", "mol");
-        BASE_UNITS.put("mol", "mol");
-
-        BASE_UNITS.put("candela", "cd");
-        BASE_UNITS.put("candelas", "cd");
-        BASE_UNITS.put("cd", "cd");
+        BASE_UNITS.put("celsius", "celsius");
+        BASE_UNITS.put("fahrenheit", "fahrenheit");
 
         BASE_UNITS.put("rotations", "rot");
         BASE_UNITS.put("rotation", "rot");
@@ -244,34 +236,15 @@ public class Unit {
 
         String fundamental = extractFundamentalBase(canonicalBaseUnit);
 
-        switch (fundamental) {
-            case "s":
-            case "min":
-            case "h":
-                return Dimension.TIME;
-            case "rot":
-            case "rad":
-            case "deg":
-                return Dimension.ANGLE;
-            case "m":
-            case "in":
-            case "ft":
-                return Dimension.LENGTH;
-            case "g":
-            case "kg":
-            case "lb":
-                return Dimension.MASS;
-            case "A":
-                return Dimension.ELECTRIC_CURRENT;
-            case "K":
-                return Dimension.TEMPERATURE;
-            case "mol":
-                return Dimension.AMOUNT_OF_SUBSTANCE;
-            case "cd":
-                return Dimension.LUMINOUS_INTENSITY;
-            default:
-                return Dimension.UNKNOWN;
-        }
+        return switch (fundamental) {
+            case "s", "min", "h" -> Dimension.TIME;
+            case "rot", "rad", "deg" -> Dimension.ANGLE;
+            case "m", "in", "ft" -> Dimension.LENGTH;
+            case "g", "kg", "lb" -> Dimension.MASS;
+            case "A" -> Dimension.ELECTRIC_CURRENT;
+            case "K", "celsius", "fahrenheit" -> Dimension.TEMPERATURE;
+            default -> Dimension.UNKNOWN;
+        };
     }
 
     private static String extractFundamentalBase(String canonicalUnit) {

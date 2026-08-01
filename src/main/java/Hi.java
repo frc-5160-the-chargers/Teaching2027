@@ -1,10 +1,10 @@
 import org.example.HasUnit;
+import org.example.OverrideUnit;
 
 public class Hi {
-    @HasUnit("meters/second") double mm = 0.1;
-    @HasUnit("m/s") double m = 1;
+    @HasUnit("m") double a = 0.1;
 
     {
-        double bad = mm + m;
+        @OverrideUnit("s") double time = a;
     }
 }

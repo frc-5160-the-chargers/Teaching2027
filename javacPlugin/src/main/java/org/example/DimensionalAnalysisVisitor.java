@@ -42,6 +42,17 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         }
     }
 
+    private Unit checkAndGetOverrideUnit(Tree node, Element element) {
+        if (element == null) return null;
+        OverrideUnit annotation = element.getAnnotation(OverrideUnit.class);
+        try {
+            return annotation == null ? null : Unit.parse(annotation.value());
+        } catch (Exception e) {
+            trees.printMessage(Diagnostic.Kind.ERROR, e.getMessage(), node, compilationUnit);
+            throw new IllegalArgumentException("Invalid unit expression was used; check the message above for details.", e);
+        }
+    }
+
     private void dimensionMismatchError(Tree node, Unit expected, Unit actual) {
         trees.printMessage(Diagnostic.Kind.ERROR, "Unit mismatch: " + expected.toHumanName() + " != " + actual.toHumanName(), node, compilationUnit);
     }
@@ -54,6 +65,14 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         Unit initUnit = null;
         if (node.getInitializer() != null) {
             initUnit = scan(node.getInitializer(), p);
+        }
+
+        // @OverrideUnit takes precedence over both @HasUnit and inferred unit
+        Unit overrideUnit = checkAndGetOverrideUnit(node, element);
+
+        if (overrideUnit != null) {
+            symbolUnits.put(element, overrideUnit);
+            return overrideUnit;
         }
 
         if (declaredUnit != null) {
@@ -74,6 +93,14 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
     public Unit visitMethod(MethodTree node, Void p) {
         Element element = trees.getElement(getCurrentPath());
         Unit methodUnit = checkAndGetHasUnit(node, element);
+
+        // @OverrideUnit takes precedence over @HasUnit for method return type
+        Unit overrideUnit = checkAndGetOverrideUnit(node, element);
+
+        if (overrideUnit != null) {
+            methodUnit = overrideUnit;
+        }
+
         if (methodUnit != null) {
             symbolUnits.put(element, methodUnit);
         }
@@ -87,6 +114,13 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         if (enclosingMethod != null) {
             Element methodElement = trees.getElement(TreePath.getPath(compilationUnit, enclosingMethod));
             Unit expectedUnit = checkAndGetHasUnit(node, methodElement);
+
+            // @OverrideUnit takes precedence over @HasUnit for return type checking
+            Unit overrideUnit = checkAndGetOverrideUnit(node, methodElement);
+            if (overrideUnit != null) {
+                expectedUnit = overrideUnit;
+            }
+
             if (expectedUnit != null && node.getExpression() != null) {
                 Unit exprUnit = scan(node.getExpression(), p);
                 if (exprUnit != null && !exprUnit.isDimensionless() && !expectedUnit.equals(exprUnit)) {
@@ -115,6 +149,12 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             if (symbolUnits.containsKey(element)) {
                 return symbolUnits.get(element);
             }
+            // @OverrideUnit takes precedence over @HasUnit for identifiers
+            Unit overrideAnnotated = checkAndGetOverrideUnit(node, element);
+            if (overrideAnnotated != null) {
+                symbolUnits.put(element, overrideAnnotated);
+                return overrideAnnotated;
+            }
             Unit annotated = checkAndGetHasUnit(node, element);
             if (annotated != null) {
                 symbolUnits.put(element, annotated);
@@ -131,6 +171,12 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             if (symbolUnits.containsKey(element)) {
                 return symbolUnits.get(element);
             }
+            // @OverrideUnit takes precedence over @HasUnit for member selects
+            Unit overrideAnnotated = checkAndGetOverrideUnit(node, element);
+            if (overrideAnnotated != null) {
+                symbolUnits.put(element, overrideAnnotated);
+                return overrideAnnotated;
+            }
             Unit annotated = checkAndGetHasUnit(node, element);
             if (annotated != null) {
                 symbolUnits.put(element, annotated);
@@ -144,6 +190,13 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
     public Unit visitMethodInvocation(MethodInvocationTree node, Void p) {
         Element element = trees.getElement(getCurrentPath());
         Unit methodUnit = checkAndGetHasUnit(node, element);
+
+        // @OverrideUnit takes precedence over @HasUnit for method invocations
+        Unit overrideMethodUnit = checkAndGetOverrideUnit(node, element);
+        if (overrideMethodUnit != null) {
+            methodUnit = overrideMethodUnit;
+        }
+
         if (methodUnit == null && element != null && symbolUnits.containsKey(element)) {
             methodUnit = symbolUnits.get(element);
         }
@@ -216,6 +269,13 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
 
         if (lhsElement != null) {
             Unit declared = checkAndGetHasUnit(node, lhsElement);
+
+            // @OverrideUnit takes precedence over @HasUnit for assignment targets
+            Unit overrideDeclared = checkAndGetOverrideUnit(node, lhsElement);
+            if (overrideDeclared != null) {
+                declared = overrideDeclared;
+            }
+
             if (declared != null && rhsUnit != null && !rhsUnit.isDimensionless() && !declared.equals(rhsUnit)) {
                 dimensionMismatchError(node.getExpression(), declared, rhsUnit);
             } else if (rhsUnit != null && !rhsUnit.isDimensionless()) {
@@ -230,7 +290,24 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         Unit rhsUnit = scan(node.getExpression(), p);
         TreePath variablePath = new TreePath(getCurrentPath(), node.getVariable());
         Element lhsElement = trees.getElement(variablePath);
-        Unit lhsUnit = lhsElement != null ? (symbolUnits.containsKey(lhsElement) ? symbolUnits.get(lhsElement) : checkAndGetHasUnit(node, lhsElement)) : Unit.DIMENSIONLESS;
+
+        Unit lhsUnit = Unit.DIMENSIONLESS;
+        if (lhsElement != null) {
+            // @OverrideUnit takes precedence over cached symbol units and @HasUnit
+            Unit overrideLhs = checkAndGetOverrideUnit(node, lhsElement);
+            if (overrideLhs != null) {
+                symbolUnits.put(lhsElement, overrideLhs);
+                lhsUnit = overrideLhs;
+            } else if (symbolUnits.containsKey(lhsElement)) {
+                lhsUnit = symbolUnits.get(lhsElement);
+            } else {
+                Unit hasUnit = checkAndGetHasUnit(node, lhsElement);
+                if (hasUnit != null) {
+                    symbolUnits.put(lhsElement, hasUnit);
+                    lhsUnit = hasUnit;
+                }
+            }
+        }
 
         if (lhsUnit == null) lhsUnit = Unit.DIMENSIONLESS;
         if (rhsUnit == null) rhsUnit = Unit.DIMENSIONLESS;
