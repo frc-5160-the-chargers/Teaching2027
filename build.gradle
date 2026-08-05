@@ -112,7 +112,7 @@ wpi.java.configureTestTasks(test)
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
-    options.compilerArgs.add '-Xplugin:MyPlugin'
+    options.compilerArgs.add '-Xplugin:DimensionalAnalysisPlugin'
     options.compilerArgs.addAll([
         '--add-exports', 'jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED',
         '--add-exports', 'jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED'

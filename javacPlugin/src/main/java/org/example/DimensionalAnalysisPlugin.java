@@ -10,7 +10,7 @@ import com.sun.source.util.Trees;
  * Javac compiler plugin for compile-time dimensional analysis.
  */
 public class DimensionalAnalysisPlugin implements Plugin {
-    public static final String NAME = "DimensionalAnalysis";
+    public static final String NAME = "DimensionalAnalysisPlugin";
 
     @Override
     public String getName() {
