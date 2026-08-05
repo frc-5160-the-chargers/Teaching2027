@@ -12,6 +12,7 @@ import javax.tools.Diagnostic;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * AST visitor for unit inference and dimensional analysis validation.
@@ -197,25 +198,42 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             methodUnit = overrideMethodUnit;
         }
 
-        if (
-            node.getMethodSelect() instanceof MemberSelectTree memberSelect &&
-            memberSelect.getIdentifier().toString().equals("in")
-        ) {
+        if (node.getMethodSelect() instanceof MemberSelectTree memberSelect) {
             var receiver = trees.getTypeMirror(new TreePath(getCurrentPath(), memberSelect.getExpression()));
             if (receiver == null || !receiver.toString().contains("org.wpilib.units")) {
                 return Unit.DIMENSIONLESS;
             }
-            var conversionOutUnit = Unit.parseFromWPILib(node.getArguments().getFirst().toString());
-            if (methodUnit != null) {
-                trees.printMessage(
-                    Diagnostic.Kind.ERROR,
-                    "@HasUnit is redundant: unit already inferred to be " + conversionOutUnit,
-                    node,
-                    compilationUnit
-                );
-                return methodUnit;
+            var methodName = memberSelect.getIdentifier().toString();
+            if (methodName.equals("in")) {
+                var conversionOutUnit = Unit.parseFromWPILib(node.getArguments().getFirst().toString());
+                if (methodUnit != null) {
+                    trees.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "@HasUnit is redundant: unit already inferred to be " + conversionOutUnit,
+                        node,
+                        compilationUnit
+                    );
+                    return methodUnit;
+                }
+                methodUnit = conversionOutUnit;
+            } else if (methodName.equals("of")) {
+                var intendedUnit = Unit.parseFromWPILib(memberSelect.getExpression().toString());
+                var actualUnit = scan(node.getArguments().getFirst(), p);
+                if (
+                    actualUnit != null &&
+                    intendedUnit != null &&
+                    !actualUnit.isDimensionless() &&
+                    !actualUnit.equals(intendedUnit)
+                ) {
+                    trees.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Unit mismatch: " + intendedUnit.toHumanName() + " != " + actualUnit.toHumanName(),
+                        node,
+                        compilationUnit
+                    );
+                    return intendedUnit;
+                }
             }
-            methodUnit = conversionOutUnit;
         }
 
         if (methodUnit == null && element != null && symbolUnits.containsKey(element)) {

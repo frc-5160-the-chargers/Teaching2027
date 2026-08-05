@@ -22,7 +22,7 @@ import static org.wpilib.units.Units.*;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
-  @HasUnit("volts/(m/s)") private final double kP = 5.0;
+  @HasUnit("volts/(rad/s)") private final double kP = 5.0;
   private final LinearVelocity linVel = MetersPerSecond.of(5);
   private final AngularVelocity angVel = RadiansPerSecond.of(5);
   private final Voltage voltage = Volts.of(5);
