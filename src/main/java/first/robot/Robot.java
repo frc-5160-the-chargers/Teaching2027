@@ -4,10 +4,17 @@
 
 package first.robot;
 
+import org.example.HasUnit;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.CANBus;
+import org.wpilib.units.LinearVelocityUnit;
+import org.wpilib.units.PerUnit;
+import org.wpilib.units.VoltageUnit;
+import org.wpilib.units.measure.*;
+
+import static org.wpilib.units.Units.*;
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in
@@ -15,11 +22,17 @@ import com.ctre.phoenix6.CANBus;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
+  @HasUnit("volts/(m/s)") private final double kP = 5.0;
+  private final LinearVelocity linVel = MetersPerSecond.of(5);
+  private final AngularVelocity angVel = RadiansPerSecond.of(5);
+  private final Voltage voltage = Volts.of(5);
+
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public Robot() {
+    double valid = kP * angVel.in(RadiansPerSecond) + voltage.in(Volts);
   }
 
   private final TalonFX motor = new TalonFX(0, CANBus.systemcore(0));

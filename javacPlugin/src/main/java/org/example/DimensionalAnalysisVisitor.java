@@ -197,6 +197,27 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             methodUnit = overrideMethodUnit;
         }
 
+        if (
+            node.getMethodSelect() instanceof MemberSelectTree memberSelect &&
+            memberSelect.getIdentifier().toString().equals("in")
+        ) {
+            var receiver = trees.getTypeMirror(new TreePath(getCurrentPath(), memberSelect.getExpression()));
+            if (receiver == null || !receiver.toString().contains("org.wpilib.units")) {
+                return Unit.DIMENSIONLESS;
+            }
+            var conversionOutUnit = Unit.parseFromWPILib(node.getArguments().getFirst().toString());
+            if (methodUnit != null) {
+                trees.printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "@HasUnit is redundant: unit already inferred to be " + conversionOutUnit,
+                    node,
+                    compilationUnit
+                );
+                return methodUnit;
+            }
+            methodUnit = conversionOutUnit;
+        }
+
         if (methodUnit == null && element != null && symbolUnits.containsKey(element)) {
             methodUnit = symbolUnits.get(element);
         }
@@ -241,10 +262,6 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             if (left.isDimensionless() && right.isDimensionless()) {
                 return Unit.DIMENSIONLESS;
             }
-//            if (left.isDimensionless() || right.isDimensionless()) {
-//                emitError(node, "Dimension mismatch: one of the operands is dimensionless but not both ");
-//                return left.isDimensionless() ? right : left;
-//            }
             if (left.equals(right)) {
                 return left;
             }

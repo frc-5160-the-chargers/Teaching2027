@@ -27,6 +27,7 @@ public class Unit {
     private static final Map<String, String> COMPOUND_UNITS = new HashMap<>();
     private static final Map<String, String> PREFIXES = new HashMap<>();
     private static final Map<String, String> BASE_UNITS = new HashMap<>();
+    private static final Map<String, String> WPILIB_UNIT_ALIASES = new HashMap<>();
 
     static {
         // SI Prefixes from milli to kilo
@@ -132,6 +133,18 @@ public class Unit {
 
         COMPOUND_UNITS.put("hertz", "1 / s");
         COMPOUND_UNITS.put("hz", "1 / s");
+
+        COMPOUND_UNITS.put("kilogramsquaremeters", "kg * m^2");
+        COMPOUND_UNITS.put("kilogramsquaremeter", "kg * m^2");
+        COMPOUND_UNITS.put("kilogrammeterssquared", "kg * m^2");
+
+        COMPOUND_UNITS.put("newtonmeters", "kg * m / s^2");
+        COMPOUND_UNITS.put("newtonmeter", "kg * m / s^2");
+
+        COMPOUND_UNITS.put("poundinch", "lb * in");
+        COMPOUND_UNITS.put("poundinches", "lb * in");
+        COMPOUND_UNITS.put("poundfeet", "lb * ft");
+        COMPOUND_UNITS.put("poundfoot", "lb * ft");
     }
 
     private final Map<String, Integer> baseUnits; // Canonical base unit -> exponent
@@ -358,6 +371,15 @@ public class Unit {
         Map<String, Integer> result = new HashMap<>();
         m.forEach((k, v) -> { int nv = v * factor; if (nv != 0) result.put(k, nv); });
         return result;
+    }
+
+    public static Unit parseFromWPILib(String expr) {
+        return parse(
+            expr
+                .replace(".per", "/")
+                .replace("Per", "/")
+                .replace(".mult", "*")
+        );
     }
 
     public static Unit parse(String expr) {
