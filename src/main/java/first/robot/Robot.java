@@ -4,11 +4,13 @@
 
 package first.robot;
 
+import org.example.DimensionalAnalysisConfig;
 import org.example.HasUnit;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.CANBus;
+import org.wpilib.units.Unit;
 import org.wpilib.units.measure.*;
 
 import static org.wpilib.units.Units.*;
@@ -19,19 +21,12 @@ import static org.wpilib.units.Units.*;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
-  @HasUnit("volts/(rad/ms)") private double kP = 5.0;
-  private final LinearVelocity linVel = MetersPerSecond.of(5);
-  private final AngularVelocity angVel = RadiansPerSecond.of(5);
-  private final Voltage voltage = Volts.of(5);
 
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public Robot() {
-    double voltage = kP * angVel.in(Radians.per(Millisecond));
-    @HasUnit("volts") double voltage2 = 5.0;
-    double voltage3 = voltage + voltage2;
   }
 
   private final TalonFX motor = new TalonFX(0, CANBus.systemcore(0));

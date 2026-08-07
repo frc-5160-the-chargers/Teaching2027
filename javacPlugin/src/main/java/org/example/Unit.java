@@ -128,6 +128,14 @@ public class Unit {
         BASE_UNITS.put("pound", "pound");
         BASE_UNITS.put("lb", "pound");
 
+        BASE_UNITS.put("percent", "0.01");
+        BASE_UNITS.put("value", "1");
+
+        // 1 G = 9.8 m/s^2, so it's technically a compound unit,
+        // but we treat it as a base unit because, for all intents and purposes,
+        // the dimensional analysis library treats it as a base unit.
+        BASE_UNITS.put("gs", "gs");
+
         // Compound unit definitions
         COMPOUND_UNITS.put("newton", "kg * m / s^2");
         COMPOUND_UNITS.put("newtons", "kg * m / s^2");
@@ -167,6 +175,8 @@ public class Unit {
         COMPOUND_UNITS.put("poundinches", "lb * in");
         COMPOUND_UNITS.put("poundfeet", "lb * ft");
         COMPOUND_UNITS.put("poundfoot", "lb * ft");
+
+        COMPOUND_UNITS.put("rpm", "rotation / minute");
     }
 
     private final Map<String, Integer> baseUnits; // Canonical base unit -> exponent
@@ -195,42 +205,6 @@ public class Unit {
 
     private static boolean isConcreteDecimal(double value) {
         return Math.abs(value - (int) value) > 1e-9;
-    }
-
-    public static Dimension getDimensionOfBaseUnit(String canonicalBaseUnit) {
-        if (canonicalBaseUnit == null || canonicalBaseUnit.isEmpty()) return Dimension.UNKNOWN;
-        var unit = SHORT_PREFIX_UNITS.get(canonicalBaseUnit);
-        if (unit == null) {
-            unit = canonicalBaseUnit;
-        }
-        for (var prefix : PREFIXES.keySet()) {
-            if (unit.startsWith(prefix)) {
-                unit = unit.substring(prefix.length());
-                break;
-            }
-        }
-
-        return switch (unit) {
-            case "second", "minute", "hour" -> Dimension.TIME;
-            case "rotation", "radian", "degree" -> Dimension.ANGLE;
-            case "meter", "inch", "foot" -> Dimension.LENGTH;
-            case "gram", "pound" -> Dimension.MASS;
-            case "ampere" -> Dimension.ELECTRIC_CURRENT;
-            case "kelvin", "celsius", "fahrenheit" -> Dimension.TEMPERATURE;
-            default -> Dimension.UNKNOWN;
-        };
-    }
-
-    public Map<Dimension, Integer> getDimensionMap() {
-        Map<Dimension, Integer> dims = new TreeMap<>();
-        for (Map.Entry<String, Integer> entry : baseUnits.entrySet()) {
-            Dimension d = getDimensionOfBaseUnit(entry.getKey());
-            if (d != Dimension.UNKNOWN) {
-                dims.put(d, dims.getOrDefault(d, 0) + entry.getValue());
-            }
-        }
-        dims.entrySet().removeIf(e -> e.getValue() == 0);
-        return dims;
     }
 
     static LinkedList<Object> convertToPostfix(String expr) {
@@ -277,7 +251,7 @@ public class Unit {
                 }
             }
 
-            throw new IllegalArgumentException("Invalid unit expression: " + exp);
+            throw new IllegalArgumentException("Unrecognized unit: " + unit);
         }
         return result;
     }
@@ -318,7 +292,7 @@ public class Unit {
                         default -> throw new UnsupportedOperationException("Unsupported operator: " + sym);
                     }
                 }
-                default -> throw new IllegalStateException("Unexpected token type: " + token.getClass());
+                default -> throw new IllegalArgumentException("Unexpected token type: " + token.getClass());
             }
         }
         return stack.pop();
@@ -334,26 +308,33 @@ public class Unit {
     }
 
     public static Unit parseFromWPILib(String expr) {
-        return parse(
-            expr
-                .replace(".per", "/")
-                .replace("Per", "/")
-                .replace(".mult", "*")
-                .replace("org.wpilib.units.Units.", "")
-                .replace("Units.", "")
-        );
+        expr = expr
+            .replace(".per", "/")
+            .replaceAll("Per(?=[A-Z])", "/")
+            .replace(".mult", "*")
+            .replace("org.wpilib.units.Units.", "")
+            .replace("Units.", "")
+            .toLowerCase();
+        for (var prefix : PREFIXES.keySet()) {
+            expr = expr.replaceAll(prefix + "\\((\\w+)\\)", prefix + "$1");
+        }
+        return parseImpl(expr);
     }
 
     public static Unit parse(String expr) {
+        return parseImpl(expr.toLowerCase());
+    }
+
+    private static Unit parseImpl(String expr) {
         if (expr == null || expr.trim().isEmpty() || expr.trim().equals("1")) {
             return DIMENSIONLESS;
         }
         if (expr.contains("+") || expr.contains("-")) {
-            throw new RuntimeException("Operands + and - aren't valid in unit expressions");
+            throw new IllegalArgumentException("Operands + and - aren't valid in unit expressions");
         }
-        var unitToken = parseUnitToken(convertToPostfix(expr.toLowerCase()));
+        var unitToken = parseUnitToken(convertToPostfix(expr));
         if (isConcreteDecimal(Math.log10(unitToken.scalarTerm))) {
-            throw new IllegalArgumentException("Unit expressions must only have a power of ten scalar term.");
+            throw new IllegalArgumentException("Unit expressions must have a power of ten scalar term.");
         }
         return new Unit(
             unitToken.unit == null ? Collections.emptyMap() : unitToken.unit,

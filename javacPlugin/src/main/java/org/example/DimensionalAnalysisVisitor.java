@@ -10,11 +10,9 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
-import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.example.DimensionalAnalysisConfig.AllowedOperations.MULTIPLICATION_DIVISION;
 
@@ -269,17 +267,29 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
             }
             var methodName = memberSelect.getIdentifier().toString();
             if (methodName.equals("in")) {
-                var conversionOutUnit = Unit.parseFromWPILib(node.getArguments().getFirst().toString());
+                var conversionUnitExp = node.getArguments().getFirst();
                 if (methodUnit != null) {
                     trees.printMessage(
                         Diagnostic.Kind.ERROR,
-                        "@HasUnit is redundant: unit already inferred to be " + conversionOutUnit,
+                        "@HasUnit is redundant: unit already inferred to be " + conversionUnitExp,
                         node,
                         compilationUnit
                     );
                     return methodUnit;
                 }
-                methodUnit = conversionOutUnit;
+                var unitNamespaceEl = trees.getElement(new TreePath(getCurrentPath(), conversionUnitExp)).getEnclosingElement();
+                if (unitNamespaceEl == null || !unitNamespaceEl.toString().contains("org.wpilib.units")) {
+                    System.out.println(unitNamespaceEl);
+                    trees.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Custom units and dynamically computed units aren't supported by the dimensional analysis plugin. " +
+                        "To resolve this, annotate this class or method with @DimensionalAnalysisConfig(enabled = false).",
+                        node,
+                        compilationUnit
+                    );
+                    return Unit.DIMENSIONLESS;
+                }
+                methodUnit = Unit.parseFromWPILib(conversionUnitExp.toString());
             } else if (methodName.equals("of")) {
                 var intendedUnit = Unit.parseFromWPILib(memberSelect.getExpression().toString());
                 var actualUnit = scan(node.getArguments().getFirst(), p);
