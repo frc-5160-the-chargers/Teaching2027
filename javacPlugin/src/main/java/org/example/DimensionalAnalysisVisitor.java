@@ -4,15 +4,19 @@ import com.sun.source.tree.*;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
+import org.example.DimensionalAnalysisConfig.AllowedOperations;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.tools.Diagnostic;
+import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import static org.example.DimensionalAnalysisConfig.AllowedOperations.MULTIPLICATION_DIVISION;
 
 /**
  * AST visitor for unit inference and dimensional analysis validation.
@@ -30,6 +34,49 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
     public void scanCompilationUnit(CompilationUnitTree cu) {
         this.compilationUnit = cu;
         scan(cu, null);
+    }
+
+    private record EffectiveConfig(boolean enabled, AllowedOperations allowedOps) {}
+
+    /**
+     * Computes the effective config for the current tree path by walking up the enclosing scopes.
+     * Rules:
+     *  - enabled is false if ANY enclosing class/method carries {@code @DimensionalAnalysisConfig(enabled = false)}
+     *    (an inner scope cannot re-enable a scope whose enclosing scope is disabled).
+     *  - allowedOperationsForUnitlessValues comes from the innermost enclosing annotation that sets it
+     *    to a non-default value.
+     */
+    private EffectiveConfig effectiveConfig() {
+        boolean enabled = true;
+        var ops = MULTIPLICATION_DIVISION;
+        boolean opsSet = false;
+        TreePath path = getCurrentPath();
+        while (path != null) {
+            Element element = trees.getElement(path);
+            if (element != null) {
+                var config = element.getAnnotation(DimensionalAnalysisConfig.class);
+                if (config != null) {
+                    if (!config.enabled()) {
+                        enabled = false;
+                    }
+                    if (!opsSet && config.allowedOperationsForUnitlessValues() != MULTIPLICATION_DIVISION) {
+                        ops = config.allowedOperationsForUnitlessValues();
+                        opsSet = true;
+                    }
+                }
+            }
+            path = path.getParentPath();
+        }
+        return new EffectiveConfig(enabled, ops);
+    }
+
+    @Override
+    public Unit visitClass(ClassTree node, Void p) {
+        if (!effectiveConfig().enabled()) {
+            // Opted out of analysis: skip the whole class subtree (fields, methods, nested types).
+            return Unit.DIMENSIONLESS;
+        }
+        return super.visitClass(node, p);
     }
 
     private Unit checkAndGetHasUnit(Tree node, Element element) {
@@ -93,6 +140,23 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
     @Override
     public Unit visitMethod(MethodTree node, Void p) {
         Element element = trees.getElement(getCurrentPath());
+
+        if (!effectiveConfig().enabled()) {
+            // Opted out of analysis: skip the method body, but still honor the declared return unit
+            // so call sites elsewhere keep seeing the documented unit.
+            Unit overrideUnit = checkAndGetOverrideUnit(node, element);
+            if (overrideUnit != null) {
+                symbolUnits.put(element, overrideUnit);
+                return overrideUnit;
+            }
+            Unit declaredUnit = checkAndGetHasUnit(node, element);
+            if (declaredUnit != null) {
+                symbolUnits.put(element, declaredUnit);
+                return declaredUnit;
+            }
+            return Unit.DIMENSIONLESS;
+        }
+
         Unit methodUnit = checkAndGetHasUnit(node, element);
 
         // @OverrideUnit takes precedence over @HasUnit for method return type
@@ -272,16 +336,41 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         if (right == null) right = Unit.DIMENSIONLESS;
 
         Tree.Kind kind = node.getKind();
-        if (kind == Tree.Kind.MULTIPLY) {
-            return left.multiply(right);
-        } else if (kind == Tree.Kind.DIVIDE) {
-            return left.divide(right);
-        } else if (kind == Tree.Kind.PLUS || kind == Tree.Kind.MINUS) {
+        boolean oneSideUnitless = left.isDimensionless() != right.isDimensionless();
+        AllowedOperations ops = effectiveConfig().allowedOps();
+
+        if (kind == Tree.Kind.MULTIPLY || kind == Tree.Kind.DIVIDE) {
+            if (oneSideUnitless && ops == AllowedOperations.NONE) {
+                trees.printMessage(
+                    Diagnostic.Kind.ERROR,
+                    "Cannot combine a unitless value with a unit-bearing value (allowedOperationsForUnitlessValues = NONE)",
+                    node,
+                    compilationUnit
+                );
+            }
+            return kind == Tree.Kind.MULTIPLY ? left.multiply(right) : left.divide(right);
+        }
+
+        if (kind == Tree.Kind.PLUS || kind == Tree.Kind.MINUS) {
             if (left.isDimensionless() && right.isDimensionless()) {
                 return Unit.DIMENSIONLESS;
             }
             if (left.equals(right)) {
                 return left;
+            }
+            if (oneSideUnitless) {
+                if (ops == AllowedOperations.ALL) {
+                    return left.isDimensionless() ? right : left;
+                }
+                if (ops == AllowedOperations.NONE) {
+                    trees.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Cannot combine a unitless value with a unit-bearing value (allowedOperationsForUnitlessValues = NONE)",
+                        node,
+                        compilationUnit
+                    );
+                    return left.isDimensionless() ? right : left;
+                }
             }
             dimensionMismatchError(node, left, right);
             return left;
@@ -348,16 +437,39 @@ public class DimensionalAnalysisVisitor extends TreePathScanner<Unit, Void> {
         if (rhsUnit == null) rhsUnit = Unit.DIMENSIONLESS;
 
         Tree.Kind kind = node.getKind();
+        var ops = effectiveConfig().allowedOps();
         if (kind == Tree.Kind.PLUS_ASSIGNMENT || kind == Tree.Kind.MINUS_ASSIGNMENT) {
-            if (!lhsUnit.isDimensionless() && !rhsUnit.isDimensionless() && !lhsUnit.equals(rhsUnit)) {
-                dimensionMismatchError(node.getExpression(), lhsUnit, rhsUnit);
+            if (lhsUnit.equals(rhsUnit)) {
+                return lhsUnit;
             }
-        } else if (kind == Tree.Kind.MULTIPLY_ASSIGNMENT) {
-            Unit newUnit = lhsUnit.multiply(rhsUnit);
-            if (lhsElement != null) symbolUnits.put(lhsElement, newUnit);
-        } else if (kind == Tree.Kind.DIVIDE_ASSIGNMENT) {
-            Unit newUnit = lhsUnit.divide(rhsUnit);
-            if (lhsElement != null) symbolUnits.put(lhsElement, newUnit);
+            if (rhsUnit.isDimensionless()) {
+                if (ops == AllowedOperations.ALL) {
+                    return lhsUnit;
+                } else if (ops == AllowedOperations.NONE) {
+                    trees.printMessage(
+                        Diagnostic.Kind.ERROR,
+                        "Cannot combine a unitless value with a unit-bearing value (allowedOperationsForUnitlessValues = NONE)",
+                        node,
+                        compilationUnit
+                    );
+                    return lhsUnit;
+                }
+            }
+            dimensionMismatchError(node.getExpression(), lhsUnit, rhsUnit);
+        } else if ((kind == Tree.Kind.MULTIPLY_ASSIGNMENT || kind == Tree.Kind.DIVIDE_ASSIGNMENT) && !rhsUnit.isDimensionless()) {
+            trees.printMessage(
+                Diagnostic.Kind.ERROR,
+                "Cannot use *= or /= if it would change the unit of the operand.",
+                node,
+                compilationUnit
+            );
+        } else if ((kind == Tree.Kind.MULTIPLY_ASSIGNMENT || kind == Tree.Kind.DIVIDE_ASSIGNMENT) && ops == AllowedOperations.NONE) {
+            trees.printMessage(
+                Diagnostic.Kind.ERROR,
+                "Cannot combine a unitless value with a unit-bearing value (allowedOperationsForUnitlessValues = NONE)",
+                node,
+                compilationUnit
+            );
         }
         return lhsUnit;
     }

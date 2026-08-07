@@ -7,6 +7,10 @@ version = 'unspecified'
 
 repositories {
     mavenCentral()
+    maven {
+        name = 'wpilibHome'
+        url = new File(System.getProperty('user.home'), 'wpilib/2027_alpha5/maven')
+    }
 }
 
 tasks.withType(JavaCompile) {
@@ -18,6 +22,9 @@ tasks.withType(JavaCompile) {
 
 dependencies {
     implementation "org.scijava:parsington:3.0.0"
+    // Real wpiunits-java library (same one the main project uses via GradleRIO), so the crash
+    // tests exercise genuine WPILib unit classes instead of stubs.
+    testImplementation "org.wpilib.wpiunits:wpiunits-java:2027.0.0-alpha-6"
     testImplementation platform('org.junit:junit-bom:6.0.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

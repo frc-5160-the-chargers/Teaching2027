@@ -9,9 +9,6 @@ import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.CANBus;
-import org.wpilib.units.LinearVelocityUnit;
-import org.wpilib.units.PerUnit;
-import org.wpilib.units.VoltageUnit;
 import org.wpilib.units.measure.*;
 
 import static org.wpilib.units.Units.*;
@@ -22,7 +19,7 @@ import static org.wpilib.units.Units.*;
  * this project, you must also update the Main.java file in the project.
  */
 public class Robot extends TimedRobot {
-  @HasUnit("volts/(rad/s)") private final double kP = 5.0;
+  @HasUnit("volts/(rad/ms)") private double kP = 5.0;
   private final LinearVelocity linVel = MetersPerSecond.of(5);
   private final AngularVelocity angVel = RadiansPerSecond.of(5);
   private final Voltage voltage = Volts.of(5);
@@ -32,7 +29,9 @@ public class Robot extends TimedRobot {
    * initialization code.
    */
   public Robot() {
-    double valid = kP * angVel.in(RadiansPerSecond) + voltage.in(Volts);
+    double voltage = kP * angVel.in(Radians.per(Millisecond));
+    @HasUnit("volts") double voltage2 = 5.0;
+    double voltage3 = voltage + voltage2;
   }
 
   private final TalonFX motor = new TalonFX(0, CANBus.systemcore(0));

@@ -21,90 +21,112 @@ public class Unit {
         UNKNOWN
     }
 
-    public static final Unit DIMENSIONLESS = new Unit(Collections.emptyMap(), "dimensionless");
+    private record Token(double scalarTerm, Map<String, Integer> unit) {
+        public Token multiply(Token other) {
+            return new Token(scalarTerm * other.scalarTerm, combineUnits(other, 1));
+        }
+
+        public Token divide(Token other) {
+            return new Token(scalarTerm / other.scalarTerm, combineUnits(other, -1));
+        }
+
+        private HashMap<String, Integer> combineUnits(Token other, int multiplier) {
+            var map = new HashMap<String, Integer>();
+            if (unit != null) {
+                map.putAll(unit);
+            }
+            if (other.unit() != null) {
+                for (var unitEntry : other.unit.entrySet()) {
+                    map.merge(unitEntry.getKey(), unitEntry.getValue() * multiplier, Integer::sum);
+                }
+            }
+            return map.isEmpty() ? null : map;
+        }
+    }
+
+    public static final Unit DIMENSIONLESS = new Unit(Collections.emptyMap(), 1, "dimensionless");
 
     private static final ExpressionParser PARSER = new ExpressionParser();
-    private static final Map<String, String> COMPOUND_UNITS = new HashMap<>();
-    private static final Map<String, String> PREFIXES = new HashMap<>();
+    private static final Map<String, String> SHORT_PREFIX_UNITS = new HashMap<>();
     private static final Map<String, String> BASE_UNITS = new HashMap<>();
-    private static final Map<String, String> WPILIB_UNIT_ALIASES = new HashMap<>();
+    private static final Map<String, String> COMPOUND_UNITS = new HashMap<>();
+    private static final Map<String, Double> PREFIXES = new HashMap<>();
+    private static final Operator MULTIPLY_OP = new Operator("*", 1, Operator.Associativity.EITHER, 0);
 
     static {
-        // SI Prefixes from milli to kilo
-        PREFIXES.put("milli", "m");
-        PREFIXES.put("centi", "c");
-        PREFIXES.put("deci", "d");
-        PREFIXES.put("deca", "da");
-        PREFIXES.put("deka", "da");
-        PREFIXES.put("hecto", "h");
-        PREFIXES.put("kilo", "k");
-        PREFIXES.put("m", "m");
-        PREFIXES.put("c", "c");
-        PREFIXES.put("d", "d");
-        PREFIXES.put("da", "da");
-        PREFIXES.put("h", "h");
-        PREFIXES.put("k", "k");
+        PREFIXES.put("milli", 0.001);
+        PREFIXES.put("centi", 0.01);
+        PREFIXES.put("deci", 0.1);
+        PREFIXES.put("deca", 10.0);
+        PREFIXES.put("deka", 10.0);
+        PREFIXES.put("hecto", 100.0);
+        PREFIXES.put("kilo", 1000.0);
 
-        // Base unit names -> canonical base symbol
-        BASE_UNITS.put("meters", "m");
-        BASE_UNITS.put("meter", "m");
-        BASE_UNITS.put("m", "m");
+        SHORT_PREFIX_UNITS.put("mm", "millimeter");
+        SHORT_PREFIX_UNITS.put("cm", "centimeter");
+        SHORT_PREFIX_UNITS.put("km", "kilometer");
+        SHORT_PREFIX_UNITS.put("kg", "kilogram");
+        SHORT_PREFIX_UNITS.put("ms", "millisecond");
+        SHORT_PREFIX_UNITS.put("mg", "milligram");
 
-        BASE_UNITS.put("seconds", "s");
-        BASE_UNITS.put("second", "s");
-        BASE_UNITS.put("sec", "s");
-        BASE_UNITS.put("s", "s");
+        BASE_UNITS.put("meters", "meter");
+        BASE_UNITS.put("meter", "meter");
+        BASE_UNITS.put("m", "meter");
 
-        BASE_UNITS.put("grams", "g");
-        BASE_UNITS.put("gram", "g");
-        BASE_UNITS.put("g", "g");
+        BASE_UNITS.put("seconds", "second");
+        BASE_UNITS.put("second", "second");
+        BASE_UNITS.put("sec", "second");
+        BASE_UNITS.put("s", "second");
 
-        BASE_UNITS.put("amperes", "A");
-        BASE_UNITS.put("ampere", "A");
-        BASE_UNITS.put("amp", "A");
-        BASE_UNITS.put("amps", "A");
-        BASE_UNITS.put("a", "A");
+        BASE_UNITS.put("grams", "gram");
+        BASE_UNITS.put("gram", "gram");
+        BASE_UNITS.put("g", "gram");
 
-        BASE_UNITS.put("kelvin", "K");
-        BASE_UNITS.put("kelvins", "K");
-        BASE_UNITS.put("k", "K");
+        BASE_UNITS.put("amperes", "ampere");
+        BASE_UNITS.put("ampere", "ampere");
+        BASE_UNITS.put("amp", "ampere");
+        BASE_UNITS.put("amps", "ampere");
+        BASE_UNITS.put("a", "ampere");
+
+        BASE_UNITS.put("kelvin", "kelvin");
+        BASE_UNITS.put("kelvins", "kelvin");
+        BASE_UNITS.put("k", "kelvin");
         BASE_UNITS.put("celsius", "celsius");
         BASE_UNITS.put("fahrenheit", "fahrenheit");
 
-        BASE_UNITS.put("rotations", "rot");
-        BASE_UNITS.put("rotation", "rot");
-        BASE_UNITS.put("rot", "rot");
+        BASE_UNITS.put("rotations", "rotation");
+        BASE_UNITS.put("rotation", "rotation");
+        BASE_UNITS.put("rot", "rotation");
+        BASE_UNITS.put("rots", "rotation");
+        BASE_UNITS.put("revolutions", "rotation");
+        BASE_UNITS.put("revolution", "rotation");
 
-        BASE_UNITS.put("radians", "rad");
-        BASE_UNITS.put("radian", "rad");
-        BASE_UNITS.put("rad", "rad");
+        BASE_UNITS.put("radians", "radian");
+        BASE_UNITS.put("radian", "radian");
+        BASE_UNITS.put("rad", "radian");
 
-        BASE_UNITS.put("degrees", "deg");
-        BASE_UNITS.put("degree", "deg");
-        BASE_UNITS.put("deg", "deg");
+        BASE_UNITS.put("degrees", "degree");
+        BASE_UNITS.put("degree", "degree");
+        BASE_UNITS.put("deg", "degree");
 
-        BASE_UNITS.put("minutes", "min");
-        BASE_UNITS.put("minute", "min");
-        BASE_UNITS.put("min", "min");
+        BASE_UNITS.put("minutes", "minute");
+        BASE_UNITS.put("minute", "minute");
+        BASE_UNITS.put("min", "minute");
 
-        BASE_UNITS.put("hours", "h");
-        BASE_UNITS.put("hour", "h");
+        BASE_UNITS.put("hours", "hour");
+        BASE_UNITS.put("hour", "hour");
 
-        BASE_UNITS.put("bytes", "B");
-        BASE_UNITS.put("byte", "B");
-        BASE_UNITS.put("b", "B");
+        BASE_UNITS.put("inches", "inch");
+        BASE_UNITS.put("inch", "inch");
+        BASE_UNITS.put("in", "inch");
 
-        BASE_UNITS.put("liters", "L");
-        BASE_UNITS.put("liter", "L");
-        BASE_UNITS.put("l", "L");
+        BASE_UNITS.put("feet", "foot");
+        BASE_UNITS.put("foot", "foot");
+        BASE_UNITS.put("ft", "foot");
 
-        BASE_UNITS.put("inches", "in");
-        BASE_UNITS.put("inch", "in");
-        BASE_UNITS.put("in", "in");
-
-        BASE_UNITS.put("feet", "ft");
-        BASE_UNITS.put("foot", "ft");
-        BASE_UNITS.put("ft", "ft");
+        BASE_UNITS.put("pounds", "pound");
+        BASE_UNITS.put("pound", "pound");
+        BASE_UNITS.put("lb", "pound");
 
         // Compound unit definitions
         COMPOUND_UNITS.put("newton", "kg * m / s^2");
@@ -134,9 +156,9 @@ public class Unit {
         COMPOUND_UNITS.put("hertz", "1 / s");
         COMPOUND_UNITS.put("hz", "1 / s");
 
-        COMPOUND_UNITS.put("kilogramsquaremeters", "kg * m^2");
-        COMPOUND_UNITS.put("kilogramsquaremeter", "kg * m^2");
-        COMPOUND_UNITS.put("kilogrammeterssquared", "kg * m^2");
+        COMPOUND_UNITS.put("gramsquaremeters", "g * m^2");
+        COMPOUND_UNITS.put("gramsquaremeter", "g * m^2");
+        COMPOUND_UNITS.put("grammeterssquared", "g * m^2");
 
         COMPOUND_UNITS.put("newtonmeters", "kg * m / s^2");
         COMPOUND_UNITS.put("newtonmeter", "kg * m / s^2");
@@ -148,9 +170,10 @@ public class Unit {
     }
 
     private final Map<String, Integer> baseUnits; // Canonical base unit -> exponent
+    private final int scalarTerm;
     private final String rawExpression;
 
-    public Unit(Map<String, Integer> baseUnits, String rawExpression) {
+    public Unit(Map<String, Integer> baseUnits, int scalarTerm, String rawExpression) {
         Map<String, Integer> cleaned = new TreeMap<>();
         for (Map.Entry<String, Integer> entry : baseUnits.entrySet()) {
             if (entry.getValue() != null && entry.getValue() != 0) {
@@ -158,6 +181,7 @@ public class Unit {
             }
         }
         this.baseUnits = Collections.unmodifiableMap(cleaned);
+        this.scalarTerm = scalarTerm;
         this.rawExpression = rawExpression;
     }
 
@@ -169,111 +193,32 @@ public class Unit {
         return baseUnits.isEmpty();
     }
 
-    public static boolean isKnownUnitTerm(String term) {
-        if (term == null) return false;
-        String trimmed = term.trim();
-        if (trimmed.isEmpty() || trimmed.equals("1")) return true;
-
-        String lower = trimmed.toLowerCase();
-        if (BASE_UNITS.containsKey(lower) || BASE_UNITS.containsKey(trimmed)) {
-            return true;
-        }
-        if (COMPOUND_UNITS.containsKey(lower) || COMPOUND_UNITS.containsKey(trimmed)) {
-            return true;
-        }
-
-        // Long prefixes
-        String[] longPrefixes = {"milli", "centi", "deci", "deca", "deka", "hecto", "kilo"};
-        for (String p : longPrefixes) {
-            if (lower.startsWith(p) && lower.length() > p.length()) {
-                String suffix = lower.substring(p.length());
-                if (BASE_UNITS.containsKey(suffix) || COMPOUND_UNITS.containsKey(suffix)) {
-                    return true;
-                }
-            }
-        }
-
-        // Short prefixes
-        String[] shortPrefixes = {"da", "m", "c", "d", "h", "k"};
-        for (String p : shortPrefixes) {
-            if (trimmed.startsWith(p) && trimmed.length() > p.length()) {
-                String suffix = trimmed.substring(p.length());
-                String lowerSuffix = suffix.toLowerCase();
-                if (BASE_UNITS.containsKey(lowerSuffix) || COMPOUND_UNITS.containsKey(lowerSuffix)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public static String canonicalize(String name) {
-        if (name == null) return "";
-        String trimmed = name.trim();
-        String lower = trimmed.toLowerCase();
-
-        if (BASE_UNITS.containsKey(lower)) {
-            return BASE_UNITS.get(lower);
-        }
-        if (BASE_UNITS.containsKey(trimmed)) {
-            return BASE_UNITS.get(trimmed);
-        }
-
-        String[] longPrefixes = {"milli", "centi", "deci", "deca", "deka", "hecto", "kilo"};
-        for (String p : longPrefixes) {
-            if (lower.startsWith(p)) {
-                String suffix = lower.substring(p.length());
-                if (BASE_UNITS.containsKey(suffix)) {
-                    return PREFIXES.get(p) + BASE_UNITS.get(suffix);
-                }
-            }
-        }
-
-        String[] shortPrefixes = {"da", "m", "c", "d", "h", "k"};
-        for (String p : shortPrefixes) {
-            if (trimmed.startsWith(p) && trimmed.length() > p.length()) {
-                String suffix = trimmed.substring(p.length());
-                String lowerSuffix = suffix.toLowerCase();
-                if (BASE_UNITS.containsKey(lowerSuffix)) {
-                    return PREFIXES.get(p) + BASE_UNITS.get(lowerSuffix);
-                }
-            }
-        }
-
-        return trimmed;
+    private static boolean isConcreteDecimal(double value) {
+        return Math.abs(value - (int) value) > 1e-9;
     }
 
     public static Dimension getDimensionOfBaseUnit(String canonicalBaseUnit) {
         if (canonicalBaseUnit == null || canonicalBaseUnit.isEmpty()) return Dimension.UNKNOWN;
-
-        String fundamental = extractFundamentalBase(canonicalBaseUnit);
-
-        return switch (fundamental) {
-            case "s", "min", "h" -> Dimension.TIME;
-            case "rot", "rad", "deg" -> Dimension.ANGLE;
-            case "m", "in", "ft" -> Dimension.LENGTH;
-            case "g", "kg", "lb" -> Dimension.MASS;
-            case "A" -> Dimension.ELECTRIC_CURRENT;
-            case "K", "celsius", "fahrenheit" -> Dimension.TEMPERATURE;
-            default -> Dimension.UNKNOWN;
-        };
-    }
-
-    private static String extractFundamentalBase(String canonicalUnit) {
-        if (BASE_UNITS.containsValue(canonicalUnit)) {
-            return canonicalUnit;
+        var unit = SHORT_PREFIX_UNITS.get(canonicalBaseUnit);
+        if (unit == null) {
+            unit = canonicalBaseUnit;
         }
-        String[] shortPrefixes = {"da", "m", "c", "d", "h", "k"};
-        for (String p : shortPrefixes) {
-            if (canonicalUnit.startsWith(p) && canonicalUnit.length() > p.length()) {
-                String sub = canonicalUnit.substring(p.length());
-                if (BASE_UNITS.containsValue(sub)) {
-                    return sub;
-                }
+        for (var prefix : PREFIXES.keySet()) {
+            if (unit.startsWith(prefix)) {
+                unit = unit.substring(prefix.length());
+                break;
             }
         }
-        return canonicalUnit;
+
+        return switch (unit) {
+            case "second", "minute", "hour" -> Dimension.TIME;
+            case "rotation", "radian", "degree" -> Dimension.ANGLE;
+            case "meter", "inch", "foot" -> Dimension.LENGTH;
+            case "gram", "pound" -> Dimension.MASS;
+            case "ampere" -> Dimension.ELECTRIC_CURRENT;
+            case "kelvin", "celsius", "fahrenheit" -> Dimension.TEMPERATURE;
+            default -> Dimension.UNKNOWN;
+        };
     }
 
     public Map<Dimension, Integer> getDimensionMap() {
@@ -292,52 +237,83 @@ public class Unit {
         var result = new LinkedList<>();
         var parsed = PARSER.parsePostfix(expr);
         outer: for (var exp: parsed) {
+            if (!(exp instanceof Variable)) {
+                result.add(exp);
+                continue;
+            }
+
+            String prefix = null;
+            String unit = exp.toString().trim().toLowerCase();
+
+            if (SHORT_PREFIX_UNITS.containsKey(unit)) {
+                unit = SHORT_PREFIX_UNITS.get(unit);
+            }
+
+            for (var prefixOption: PREFIXES.keySet()) {
+                if (unit.startsWith(prefixOption)) {
+                    prefix = prefixOption;
+                    unit = unit.substring(prefix.length());
+                    break;
+                }
+            }
+
+            if (BASE_UNITS.containsKey(unit)) {
+                if (prefix == null) {
+                    result.add(BASE_UNITS.get(unit));
+                } else {
+                    result.addAll(List.of(PREFIXES.get(prefix), BASE_UNITS.get(unit), MULTIPLY_OP));
+                }
+                continue;
+            }
+
             for (var compoundUnitEntry: COMPOUND_UNITS.entrySet()) {
-                if (compoundUnitEntry.getKey().equals(exp.toString())) {
-                    result.addAll(convertToPostfix(compoundUnitEntry.getValue()));
+                if (compoundUnitEntry.getKey().equals(unit)) {
+                    var expandedUnitExp = compoundUnitEntry.getValue();
+                    if (prefix != null) {
+                        expandedUnitExp = PREFIXES.get(prefix) + " * " + expandedUnitExp;
+                    }
+                    result.addAll(convertToPostfix(expandedUnitExp));
                     continue outer;
                 }
             }
-            if (exp instanceof Variable) {
-                if (!isKnownUnitTerm(exp.toString())) {
-                    throw new IllegalArgumentException("Unknown unit term: " + exp);
-                }
-                result.add(canonicalize(exp.toString()));
-            } else {
-                result.add(exp);
-            }
+
+            throw new IllegalArgumentException("Invalid unit expression: " + exp);
         }
         return result;
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Integer> toExponentMap(LinkedList<Object> postfix) {
-        Deque<Object> stack = new ArrayDeque<>(); // holds Map<String,Integer> (term) or Double (number)
-
-        for (Object token : postfix) {
+    private static Token parseUnitToken(LinkedList<Object> postfix) {
+        var stack = new ArrayDeque<Token>();
+        for (var token : postfix) {
             switch (token) {
-                case Number _ -> stack.push(token);
-                case String variableToken -> stack.push(new HashMap<>(Map.of(variableToken, 1)));
+                case Number num -> stack.push(new Token(num.doubleValue(), null));
+                case String variableToken -> {
+                    var map = new HashMap<String, Integer>();
+                    map.put(variableToken, 1);
+                    stack.push(new Token(1, map));
+                }
                 case Operator _ -> {
                     String sym = token.toString();
-
                     switch (sym) {
                         case "(1)" -> {}
-                        case "*", "/" -> {
-                            Object right = stack.pop(), left = stack.pop();
-                            stack.push(combine(left, right, sym.equals("*") ? 1 : -1));
+                        case "*" -> {
+                            Token right = stack.pop(), left = stack.pop();
+                            stack.push(left.multiply(right));
+                        }
+                        case "/" -> {
+                            Token right = stack.pop(), left = stack.pop();
+                            stack.push(left.divide(right));
                         }
                         case "^" -> {
-                            Object exponent = stack.pop(), base = stack.pop();
-                            if (exponent instanceof Integer exp) {
-                                stack.push(
-                                    base instanceof Number n
-                                        ? Math.pow(n.doubleValue(), exp)
-                                        : scale((Map<String, Integer>) base, exp)
-                                );
-                            } else {
+                            Token exponent = stack.pop(), base = stack.pop();
+                            if (exponent.unit != null || isConcreteDecimal(exponent.scalarTerm)) {
                                 throw new UnsupportedOperationException("Only integer exponents supported: " + exponent);
                             }
+                            var newToken = new Token(
+                                (int) Math.pow(base.scalarTerm, exponent.scalarTerm),
+                                scale(base.unit, (int) Math.round(exponent.scalarTerm))
+                            );
+                            stack.push(newToken);
                         }
                         default -> throw new UnsupportedOperationException("Unsupported operator: " + sym);
                     }
@@ -345,31 +321,15 @@ public class Unit {
                 default -> throw new IllegalStateException("Unexpected token type: " + token.getClass());
             }
         }
-
-        Object top = stack.pop();
-        return top instanceof Number ? Collections.emptyMap() : (Map<String, Integer>) top;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Object combine(Object left, Object right, int sign) {
-        if (left instanceof Number && right instanceof Number) {
-            double l = (Double) left, r = (Double) right;
-            return sign == 1 ? l * r : l / r;
-        }
-        if (right instanceof Number) {
-            throw new UnsupportedOperationException("Cannot combine a number with a unit: " + right);
-        }
-        if (left instanceof Number) return sign == 1 ? right : scale((Map<String, Integer>) right, -1);
-
-        Map<String, Integer> result = new HashMap<>((Map<String, Integer>) left);
-        ((Map<String, Integer>) right).forEach((k, v) -> result.merge(k, sign * v, Integer::sum));
-        result.values().removeIf(v -> v == 0);
-        return result;
+        return stack.pop();
     }
 
     private static Map<String, Integer> scale(Map<String, Integer> m, int factor) {
         Map<String, Integer> result = new HashMap<>();
-        m.forEach((k, v) -> { int nv = v * factor; if (nv != 0) result.put(k, nv); });
+        m.forEach((k, v) -> {
+            int nv = v * factor;
+            if (nv != 0) result.put(k, nv);
+        });
         return result;
     }
 
@@ -379,6 +339,8 @@ public class Unit {
                 .replace(".per", "/")
                 .replace("Per", "/")
                 .replace(".mult", "*")
+                .replace("org.wpilib.units.Units.", "")
+                .replace("Units.", "")
         );
     }
 
@@ -389,29 +351,36 @@ public class Unit {
         if (expr.contains("+") || expr.contains("-")) {
             throw new RuntimeException("Operands + and - aren't valid in unit expressions");
         }
-        expr = expr.toLowerCase();
-        return new Unit(toExponentMap(convertToPostfix(expr)), expr);
+        var unitToken = parseUnitToken(convertToPostfix(expr.toLowerCase()));
+        if (isConcreteDecimal(Math.log10(unitToken.scalarTerm))) {
+            throw new IllegalArgumentException("Unit expressions must only have a power of ten scalar term.");
+        }
+        return new Unit(
+            unitToken.unit == null ? Collections.emptyMap() : unitToken.unit,
+            (int) unitToken.scalarTerm,
+            expr
+        );
     }
 
     public Unit multiply(Unit other) {
         if (this.isDimensionless()) return other;
         if (other.isDimensionless()) return this;
 
-        Map<String, Integer> newMap = new HashMap<>(this.baseUnits);
-        for (Map.Entry<String, Integer> entry : other.baseUnits.entrySet()) {
+        var newMap = new HashMap<>(this.baseUnits);
+        for (var entry : other.baseUnits.entrySet()) {
             newMap.put(entry.getKey(), newMap.getOrDefault(entry.getKey(), 0) + entry.getValue());
         }
-        return new Unit(newMap, "(" + this.rawExpression + ")*(" + other.rawExpression + ")");
+        return new Unit(newMap, scalarTerm * other.scalarTerm, "(" + this.rawExpression + ")*(" + other.rawExpression + ")");
     }
 
     public Unit divide(Unit other) {
         if (other.isDimensionless()) return this;
 
-        Map<String, Integer> newMap = new HashMap<>(this.baseUnits);
-        for (Map.Entry<String, Integer> entry : other.baseUnits.entrySet()) {
+        var newMap = new HashMap<>(this.baseUnits);
+        for (var entry : other.baseUnits.entrySet()) {
             newMap.put(entry.getKey(), newMap.getOrDefault(entry.getKey(), 0) - entry.getValue());
         }
-        return new Unit(newMap, "(" + this.rawExpression + ")/(" + other.rawExpression + ")");
+        return new Unit(newMap, scalarTerm / other.scalarTerm, "(" + this.rawExpression + ")/(" + other.rawExpression + ")");
     }
 
     public String toHumanName() {
@@ -422,9 +391,11 @@ public class Unit {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Unit unit = (Unit) o;
-        return Objects.equals(baseUnits, unit.baseUnits);
+        if (o instanceof Unit unit) {
+            return Math.abs(scalarTerm - unit.scalarTerm) < 1e-9 && Objects.equals(baseUnits, unit.baseUnits);
+        } else {
+            return false;
+        }
     }
 
     @Override
