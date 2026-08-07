@@ -4,16 +4,11 @@
 
 package first.robot;
 
-import org.example.DimensionalAnalysisConfig;
-import org.example.HasUnit;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.CANBus;
-import org.wpilib.units.Unit;
-import org.wpilib.units.measure.*;
 
-import static org.wpilib.units.Units.*;
 
 /**
  * The methods in this class are called automatically corresponding to each mode, as described in

@@ -51,6 +51,8 @@ public class Unit {
     private static final Map<String, String> BASE_UNITS = new HashMap<>();
     private static final Map<String, String> COMPOUND_UNITS = new HashMap<>();
     private static final Map<String, Double> PREFIXES = new HashMap<>();
+    // Prefixes that can be applied to units via `Prefix(unit)`: like `Milli(Second)` or `Kilo(Meter)`.
+    private static final String[] WPILIB_UNITS_GENERIC_PREFIXES = {"Kilo", "Milli"};
     private static final Operator MULTIPLY_OP = new Operator("*", 1, Operator.Associativity.EITHER, 0);
 
     static {
@@ -313,19 +315,14 @@ public class Unit {
             .replaceAll("Per(?=[A-Z])", "/")
             .replace(".mult", "*")
             .replace("org.wpilib.units.Units.", "")
-            .replace("Units.", "")
-            .toLowerCase();
-        for (var prefix : PREFIXES.keySet()) {
+            .replace("Units.", "");
+        for (var prefix : WPILIB_UNITS_GENERIC_PREFIXES) {
             expr = expr.replaceAll(prefix + "\\((\\w+)\\)", prefix + "$1");
         }
-        return parseImpl(expr);
+        return parse(expr);
     }
 
     public static Unit parse(String expr) {
-        return parseImpl(expr.toLowerCase());
-    }
-
-    private static Unit parseImpl(String expr) {
         if (expr == null || expr.trim().isEmpty() || expr.trim().equals("1")) {
             return DIMENSIONLESS;
         }
