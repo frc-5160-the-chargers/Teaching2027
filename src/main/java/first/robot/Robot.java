@@ -4,6 +4,7 @@
 
 package first.robot;
 
+import org.littletonrobotics.junction.Logger;
 import org.wpilib.command3.Scheduler;
 import org.wpilib.framework.TimedRobot;
 
@@ -18,7 +19,10 @@ public class Robot extends TimedRobot {
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
+  public int number;
+
   public Robot() {
+
   }
 
 
@@ -32,5 +36,8 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {
     Scheduler.getDefault().run();
+    number++;
+    Logger.recordOutput("number", number);
+
   }
 }
