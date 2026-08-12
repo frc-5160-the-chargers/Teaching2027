@@ -6,6 +6,7 @@ package first.robot;
 
 import org.littletonrobotics.junction.Logger;
 import org.wpilib.command3.Scheduler;
+import org.wpilib.framework.OpModeRobot;
 import org.wpilib.framework.TimedRobot;
 
 
@@ -14,15 +15,16 @@ import org.wpilib.framework.TimedRobot;
  * the TimedRobot documentation. If you change the name of this class or the package after creating
  * this project, you must also update the Main.java file in the project.
  */
-public class Robot extends TimedRobot {
+public class Robot extends OpModeRobot {
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
   public int number;
+  public final Shooter shooter = new Shooter(); //defining shooter
 
   public Robot() {
-
+    addPeriodic(shooter::updateSim, 0.005);
   }
 
 
@@ -38,6 +40,7 @@ public class Robot extends TimedRobot {
     Scheduler.getDefault().run();
     number++;
     Logger.recordOutput("number", number);
+    shooter.periodic();
 
   }
 }
